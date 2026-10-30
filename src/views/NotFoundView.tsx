@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { RiErrorWarningLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { isLocalMode } from '../lib/dataMode'
 import { AppHeader } from '../components/AppHeader'
 import { Button } from '../ui/Button'
@@ -7,6 +8,7 @@ import { Card } from '../ui/Card'
 
 export function NotFoundView() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   return (
     <div className="min-h-dvh">
@@ -17,14 +19,13 @@ export function NotFoundView() {
             <RiErrorWarningLine className="size-6" />
           </span>
           <h1 className="mt-4 text-title-h5 text-text-strong-950">
-            Halaman tidak ditemukan
+            {t('notFound.title')}
           </h1>
           <p className="mt-2 text-paragraph-sm text-text-sub-600">
-            Link yang kamu buka tidak dikenal. Periksa lagi alamatnya atau
-            mulai sesi baru.
+            {t('notFound.body')}
           </p>
           <Button className="mt-5" onClick={() => navigate('/')}>
-            Kembali ke beranda
+            {t('notFound.cta')}
           </Button>
         </Card>
       </main>

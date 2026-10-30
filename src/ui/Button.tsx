@@ -13,11 +13,11 @@ const variantClasses: Record<
     filled:
       'bg-primary-base text-white hover:bg-primary-darker focus-visible:ring-primary-alpha-16',
     stroke:
-      'bg-bg-white-0 text-primary-base ring-1 ring-inset ring-primary-base hover:bg-primary-alpha-10 focus-visible:ring-primary-alpha-16',
+      'bg-bg-white-0 text-primary-text ring-1 ring-inset ring-primary-text hover:bg-primary-alpha-10 focus-visible:ring-primary-alpha-16',
     lighter:
-      'bg-primary-alpha-10 text-primary-base hover:bg-bg-white-0 hover:ring-1 hover:ring-inset hover:ring-primary-base focus-visible:ring-primary-alpha-16',
+      'bg-primary-alpha-10 text-primary-text hover:bg-bg-white-0 hover:ring-1 hover:ring-inset hover:ring-primary-text focus-visible:ring-primary-alpha-16',
     ghost:
-      'text-primary-base hover:bg-primary-alpha-10 focus-visible:ring-primary-alpha-16',
+      'text-primary-text hover:bg-primary-alpha-10 focus-visible:ring-primary-alpha-16',
   },
   neutral: {
     filled:
@@ -31,7 +31,7 @@ const variantClasses: Record<
   },
   error: {
     filled:
-      'bg-error-base text-white hover:opacity-90 focus-visible:ring-error-lighter',
+      'bg-error-fill text-white hover:opacity-90 focus-visible:ring-error-lighter',
     stroke:
       'bg-bg-white-0 text-error-base ring-1 ring-inset ring-error-base hover:bg-error-lighter focus-visible:ring-error-lighter',
     lighter:

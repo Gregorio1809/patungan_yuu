@@ -43,7 +43,7 @@ export function MoneyInput({
         aria-label={ariaLabel}
         placeholder={placeholder}
         className={cn(
-          'money h-10 w-full rounded-10 border border-stroke-soft-200 bg-bg-white-0 pr-3 pl-9 text-sm text-text-strong-950 shadow-regular-xs transition placeholder:text-text-soft-400 focus:border-primary-base focus:ring-4 focus:ring-primary-alpha-10 focus:outline-none disabled:cursor-not-allowed disabled:bg-bg-weak-50 disabled:text-text-disabled-300',
+          'money h-10 w-full rounded-10 border border-stroke-soft-200 bg-bg-white-0 pr-3 pl-9 text-sm text-text-strong-950 shadow-regular-xs transition placeholder:text-text-soft-400 focus:border-primary-text focus:ring-4 focus:ring-primary-alpha-10 focus:outline-none disabled:cursor-not-allowed disabled:bg-bg-weak-50 disabled:text-text-disabled-300',
           className,
         )}
         onFocus={() => {

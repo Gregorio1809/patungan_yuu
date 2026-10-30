@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from '../i18n/useTranslation'
 import type { Participant } from '../types/database'
 import { Alert } from '../ui/Alert'
 import { Button } from '../ui/Button'
@@ -23,13 +24,14 @@ export function JoinDialog({
   onSubmit,
   onViewOnly,
 }: JoinDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
-  const [error, setError] = useState('')
+  const [invalid, setInvalid] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setName('')
-    setError('')
+    setInvalid(false)
   }, [open])
 
   const matched = useMemo(() => {
@@ -46,10 +48,10 @@ export function JoinDialog({
   function submit() {
     const value = name.trim()
     if (!value) {
-      setError('Nama wajib diisi.')
+      setInvalid(true)
       return
     }
-    setError('')
+    setInvalid(false)
     onSubmit(value)
   }
 
@@ -60,8 +62,8 @@ export function JoinDialog({
         onOpenChange(value)
         if (!value) onViewOnly()
       }}
-      title="Gabung ke patungan"
-      description="Isi namamu supaya bisa klaim item dan lihat totalmu."
+      title={t('join.title')}
+      description={t('join.description')}
       size="sm"
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -73,7 +75,7 @@ export function JoinDialog({
               onOpenChange(false)
             }}
           >
-            Lihat dulu
+            {t('join.viewOnly')}
           </Button>
           <Button
             type="submit"
@@ -81,10 +83,10 @@ export function JoinDialog({
             disabled={pending}
           >
             {pending
-              ? 'Menggabungkan...'
+              ? t('join.pending')
               : matched
-                ? `Gabung sebagai ${matched.name}`
-                : 'Gabung'}
+                ? t('join.as', { name: matched.name })
+                : t('join.submit')}
           </Button>
         </div>
       }
@@ -98,33 +100,31 @@ export function JoinDialog({
         }}
       >
         <div>
-          <Label htmlFor="patungan-join-name">Nama kamu</Label>
+          <Label htmlFor="patungan-join-name">{t('join.name')}</Label>
           <Input
             id="patungan-join-name"
             value={name}
             onChange={event => setName(event.target.value)}
             maxLength={40}
             autoComplete="name"
-            placeholder="Contoh: Budi"
+            placeholder={t('join.placeholder')}
             autoFocus
           />
-          {error && (
+          {invalid && (
             <p className="mt-1.5 text-label-sm text-error-base" role="alert">
-              {error}
+              {t('join.required')}
             </p>
           )}
         </div>
 
         {matched && (
           <Alert tone="info">
-            Nama <span className="font-medium">{matched.name}</span> sudah
-            terdaftar. Tombol gabung akan memakai nama itu, misalnya saat
-            membuka link di perangkat kedua.
+            {t('join.matched', { name: matched.name })}
           </Alert>
         )}
 
         <p className="text-[11px] text-text-soft-400">
-          Tanpa akun. Identitasmu disimpan di perangkat ini.
+          {t('join.noAccount')}
         </p>
       </form>
     </Modal>

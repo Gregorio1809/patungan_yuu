@@ -5,6 +5,7 @@ import {
   RiReceiptLine,
   RiUserAddLine,
 } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { isLocalMode } from '../lib/dataMode'
 import { getRecentSessions, type RecentSession } from '../lib/identity'
 import { sessionRepository } from '../lib/repository'
@@ -17,31 +18,32 @@ import { Alert } from '../ui/Alert'
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
 
-const steps = [
-  {
-    number: '01',
-    title: 'Buat sesi',
-    description: 'Cukup beri nama acara.',
-  },
-  {
-    number: '02',
-    title: 'Bagikan link',
-    description: 'Peserta buka link dan isi nama.',
-  },
-  {
-    number: '03',
-    title: 'Atur & klaim',
-    description: 'Atur biaya, lalu klaim item.',
-  },
-]
-
 export function HomeView() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const createSession = useSessionStore(state => state.createSession)
   const toastError = useToastStore(state => state.error)
   const [creating, setCreating] = useState(false)
   const [recents, setRecents] = useState<RecentSession[]>(getRecentSessions())
   const requiresSupabaseSetup = !isLocalMode && !isSupabaseConfigured
+
+  const steps = [
+    {
+      number: '01',
+      title: t('home.stepCreateTitle'),
+      description: t('home.stepCreateBody'),
+    },
+    {
+      number: '02',
+      title: t('home.stepShareTitle'),
+      description: t('home.stepShareBody'),
+    },
+    {
+      number: '03',
+      title: t('home.stepClaimTitle'),
+      description: t('home.stepClaimBody'),
+    },
+  ]
 
   useEffect(() => {
     if (recents.length === 0) return
@@ -75,7 +77,7 @@ export function HomeView() {
       const created = await createSession({ title })
       await navigate(`/s/${created.slug}`)
     } catch {
-      toastError('Gagal membuat sesi. Cek koneksi lalu coba lagi.')
+      toastError(t('home.createError'))
     } finally {
       setCreating(false)
     }
@@ -89,49 +91,42 @@ export function HomeView() {
         {isLocalMode && (
           <Alert
             tone="info"
-            title="Mode lokal aktif"
-            action={<Badge tone="info">Development</Badge>}
+            title={t('home.localTitle')}
+            action={
+              <Badge tone="info" className="hidden sm:inline-flex">
+                {t('home.development')}
+              </Badge>
+            }
             className="mb-5"
           >
-            Data disimpan di browser ini, jadi kamu bisa mencoba semua fitur
-            tanpa Supabase. Supabase dipakai saat aplikasi berjalan di
-            production.
+            {t('home.localBody')}
           </Alert>
         )}
 
         {requiresSupabaseSetup && (
           <Alert
             tone="warning"
-            title="Supabase belum tersambung"
+            title={t('home.setupTitle')}
             className="mb-5"
           >
-            Isi{' '}
-            <code className="rounded bg-bg-white-0 px-1.5 py-0.5 text-[11px]">
-              VITE_SUPABASE_URL
-            </code>{' '}
-            dan{' '}
-            <code className="rounded bg-bg-white-0 px-1.5 py-0.5 text-[11px]">
-              VITE_SUPABASE_ANON_KEY
-            </code>{' '}
-            di <code>.env.local</code> atau Netlify, lalu deploy ulang. Skema
-            database ada di <code>supabase/schema.sql</code>.
+            {t('home.setupBody')}
           </Alert>
         )}
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">
           <div>
-            <Badge tone="success">Split bill rame-rame</Badge>
+            <Badge tone="success">{t('home.badge')}</Badge>
 
             <h1 className="mt-3 font-display text-3xl leading-[1.05] font-semibold tracking-tight text-text-strong-950 sm:text-4xl">
-              Bagi bill,
+              {t('home.heroLine1')}
               <br />
-              <span className="text-primary-base">bukan bingung.</span>
+              <span className="text-primary-text">
+                {t('home.heroLine2')}
+              </span>
             </h1>
 
             <p className="mt-3 max-w-xl text-paragraph-md text-text-sub-600">
-              Buat sesi, bagikan link, biarkan setiap orang klaim itemnya
-              sendiri. Total tiap orang dihitung otomatis, lengkap dengan
-              ongkir, diskon, service, dan pajak.
+              {t('home.heroBody')}
             </p>
 
             <div className="mt-5 grid gap-2 sm:grid-cols-3">
@@ -150,7 +145,7 @@ export function HomeView() {
 
             <div className="mt-6">
               <h2 className="text-title-h6 text-text-strong-950">
-                Mulai patungan baru
+                {t('home.startTitle')}
               </h2>
               <div className="mt-3">
                 <CreateSessionForm
@@ -167,7 +162,7 @@ export function HomeView() {
             <Card className="overflow-hidden">
               <div className="flex items-center justify-between gap-3 border-b border-stroke-soft-200 px-4 py-3.5">
                 <h2 className="text-label-md font-semibold text-text-strong-950">
-                  Sesi terakhir
+                  {t('home.recentTitle')}
                 </h2>
                 <Badge>{recents.length}</Badge>
               </div>
@@ -205,10 +200,10 @@ export function HomeView() {
                     <RiUserAddLine className="size-5" />
                   </span>
                   <p className="mt-3 text-label-md text-text-strong-950">
-                    Belum ada sesi
+                    {t('home.noSessions')}
                   </p>
                   <p className="mt-1 max-w-xs text-paragraph-sm text-text-sub-600">
-                    Sesi yang kamu buat atau buka akan muncul di sini.
+                    {t('home.noSessionsBody')}
                   </p>
                 </div>
               )}
@@ -216,12 +211,12 @@ export function HomeView() {
 
             <Card className="p-4">
               <h2 className="text-label-md font-semibold text-text-strong-950">
-                Cocok buat
+                {t('home.goodForTitle')}
               </h2>
               <ul className="mt-2 space-y-1.5 text-paragraph-sm text-text-sub-600">
-                <li>Makan rame-rame di kantor</li>
-                <li>Patungan kado atau tiket</li>
-                <li>Bill kafe yang pajaknya bikin bingung</li>
+                <li>{t('home.goodFor1')}</li>
+                <li>{t('home.goodFor2')}</li>
+                <li>{t('home.goodFor3')}</li>
               </ul>
             </Card>
           </aside>

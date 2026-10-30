@@ -1,3 +1,9 @@
+import {
+  translate,
+  type Language,
+  type Params,
+  type TranslationKey,
+} from '../i18n/translations'
 import type { CalcResult } from './calculate'
 import { formatRupiah } from './money'
 import { buildSettlement } from './settlement'
@@ -10,7 +16,10 @@ export function buildSummaryText(
   result: CalcResult,
   participants: Participant[],
   shareUrl?: string,
+  language: Language = 'id',
 ): string {
+  const t = (key: TranslationKey, params?: Params) =>
+    translate(language, key, params)
   const claimedGross = result.items
     .filter(item => item.claimed)
     .reduce((sum, item) => sum + item.gross, 0)
@@ -18,31 +27,48 @@ export function buildSummaryText(
 
   const lines: string[] = [`🧾 ${session.title}`]
 
-  if (claimedGross > 0) lines.push(`Subtotal: ${formatRupiah(claimedGross)}`)
-  if (itemDiscount > 0) lines.push(`Diskon item: -${formatRupiah(itemDiscount)}`)
+  if (claimedGross > 0) {
+    lines.push(`${t('share.subtotal')}: ${formatRupiah(claimedGross)}`)
+  }
+  if (itemDiscount > 0) {
+    lines.push(
+      `${t('share.itemDiscount')}: -${formatRupiah(itemDiscount)}`,
+    )
+  }
   if (result.shippingAmount > 0) {
-    lines.push(`Ongkir: +${formatRupiah(result.shippingAmount)}`)
+    lines.push(
+      `${t('share.shipping')}: +${formatRupiah(result.shippingAmount)}`,
+    )
   }
   if (result.billDiscount > 0) {
-    lines.push(`Diskon bill: -${formatRupiah(result.billDiscount)}`)
+    lines.push(
+      `${t('share.billDiscount')}: -${formatRupiah(result.billDiscount)}`,
+    )
   }
   if (result.serviceAmount > 0) {
-    lines.push(`Service: +${formatRupiah(result.serviceAmount)}`)
+    lines.push(
+      `${t('share.service')}: +${formatRupiah(result.serviceAmount)}`,
+    )
   }
   if (result.taxAmount > 0) {
-    lines.push(`Pajak/PB1: +${formatRupiah(result.taxAmount)}`)
+    lines.push(`${t('share.tax')}: +${formatRupiah(result.taxAmount)}`)
   }
   if (result.tipAmount > 0) {
-    lines.push(`Tip: +${formatRupiah(result.tipAmount)}`)
+    lines.push(`${t('share.tip')}: +${formatRupiah(result.tipAmount)}`)
   }
-  lines.push(`Total: ${formatRupiah(result.grandTotal)}`, '')
+  lines.push(`${t('share.total')}: ${formatRupiah(result.grandTotal)}`, '')
 
   const payer =
     participants.find(participant => participant.is_payer) ?? null
 
   for (const person of result.people) {
-    const payerLabel = payer?.id === person.participantId ? ' (penerima)' : ''
-    lines.push(`${person.name}${payerLabel} — ${formatRupiah(person.total)}`)
+    const payerLabel =
+      payer?.id === person.participantId
+        ? t('share.payerSuffix')
+        : ''
+    lines.push(
+      `${person.name}${payerLabel} — ${formatRupiah(person.total)}`,
+    )
     for (const item of person.items) {
       lines.push(`  • ${item.itemName}: ${formatRupiah(item.amount)}`)
     }
@@ -53,20 +79,23 @@ export function buildSummaryText(
 
     if (settlement.lines.length > 0) {
       lines.push('')
-      lines.push(`💳 Transfer ke ${payer.name}:`)
+      lines.push(t('share.transferTo', { name: payer.name }))
       for (const line of settlement.lines) {
         const status = line.paid
-          ? 'lunas'
+          ? t('share.paid')
           : line.stale
-            ? 'perlu dicek'
-            : 'belum lunas'
+            ? t('share.stale')
+            : t('share.unpaid')
         lines.push(
           `  • ${line.name}: ${formatRupiah(line.amount)} (${status})`,
         )
       }
       if (settlement.roundingExtra > 0) {
         lines.push(
-          `  Pembulatan: +${formatRupiah(settlement.roundingExtra)} untuk ${payer.name}`,
+          t('share.rounding', {
+            amount: formatRupiah(settlement.roundingExtra),
+            name: payer.name,
+          }),
         )
       }
     }
@@ -76,9 +105,11 @@ export function buildSummaryText(
     const total = result.unclaimedItems.reduce((sum, item) => sum + item.net, 0)
     lines.push('')
     lines.push(
-      `Catatan: ${result.unclaimedItems.length} item belum diklaim (${formatRupiah(total)}): ${result.unclaimedItems
-        .map(item => item.name)
-        .join(', ')}`,
+      t('share.unclaimed', {
+        count: result.unclaimedItems.length,
+        amount: formatRupiah(total),
+        names: result.unclaimedItems.map(item => item.name).join(', '),
+      }),
     )
   }
 

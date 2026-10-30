@@ -1,7 +1,7 @@
 import { cn } from './cn'
 
 const tones = [
-  'bg-orange-100 text-orange-800',
+  'bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-200',
   'bg-bg-soft-200 text-text-sub-600',
   'bg-success-lighter text-success-base',
   'bg-information-lighter text-information-base',
@@ -41,7 +41,7 @@ export function Avatar({ name, size = 'md', className }: AvatarProps) {
       title={name}
       aria-hidden="true"
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-1 ring-inset ring-black/5',
+        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-1 ring-inset ring-black/5 dark:ring-white/10',
         sizeClasses[size],
         toneFor(name),
         className,

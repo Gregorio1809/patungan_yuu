@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from '../i18n/useTranslation'
 import type {
   DiscountAllocation,
   DiscountScope,
@@ -26,6 +27,12 @@ interface BillSettingsDialogProps {
   onSave: (patch: SessionSettingsPatch) => void
 }
 
+type BillError =
+  | 'bill.errorName'
+  | 'bill.errorDiscountMax'
+  | 'bill.errorPercentMax'
+  | null
+
 function safePercent(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.min(100, Math.max(0, value))
@@ -39,6 +46,7 @@ export function BillSettingsDialog({
   pending,
   onSave,
 }: BillSettingsDialogProps) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState(session.title)
   const [discountType, setDiscountType] = useState<DiscountType>(
     session.bill_discount_type,
@@ -62,7 +70,7 @@ export function BillSettingsDialog({
   const [tipAmount, setTipAmount] = useState(session.tip_amount)
   const [rounding, setRounding] = useState<RoundingStep>(session.rounding)
   const [receiptTotal, setReceiptTotal] = useState(session.receipt_total)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<BillError>(null)
 
   useEffect(() => {
     if (!open) return
@@ -78,7 +86,7 @@ export function BillSettingsDialog({
     setTipAmount(session.tip_amount)
     setRounding(session.rounding)
     setReceiptTotal(session.receipt_total)
-    setError('')
+    setError(null)
   }, [open, session])
 
   const preview = useMemo(() => {
@@ -126,18 +134,18 @@ export function BillSettingsDialog({
   function submit() {
     const value = title.trim()
     if (!value) {
-      setError('Nama sesi wajib diisi.')
+      setError('bill.errorName')
       return
     }
     if (discountType === 'percent' && discountValue > 100) {
-      setError('Diskon bill maksimal 100%.')
+      setError('bill.errorDiscountMax')
       return
     }
     if (servicePercent > 100 || taxPercent > 100) {
-      setError('Service dan pajak maksimal 100%.')
+      setError('bill.errorPercentMax')
       return
     }
-    setError('')
+    setError(null)
 
     onSave({
       title: value,
@@ -159,8 +167,8 @@ export function BillSettingsDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Pengaturan bill"
-      description="Diskon, ongkir, service, pajak, tip, dan pembulatan."
+      title={t('bill.title')}
+      description={t('bill.description')}
       size="lg"
       footer={
         <>
@@ -170,10 +178,10 @@ export function BillSettingsDialog({
             disabled={pending}
             onClick={() => onOpenChange(false)}
           >
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button type="submit" form="patungan-bill-form" disabled={pending}>
-            {pending ? 'Menyimpan...' : 'Simpan pengaturan'}
+            {pending ? t('bill.saving') : t('bill.save')}
           </Button>
         </>
       }
@@ -188,7 +196,7 @@ export function BillSettingsDialog({
       >
         <section className="space-y-3">
           <h3 className="text-label-md font-semibold text-text-strong-950">
-            Diskon bill
+            {t('bill.discountSection')}
           </h3>
 
           <SegmentedControl
@@ -198,14 +206,16 @@ export function BillSettingsDialog({
               setDiscountValue(0)
             }}
             options={[
-              { value: 'percent', label: 'Persen' },
-              { value: 'amount', label: 'Nominal' },
+              { value: 'percent', label: t('bill.percent') },
+              { value: 'amount', label: t('bill.amount') },
             ]}
-            ariaLabel="Tipe diskon bill"
+            ariaLabel={t('bill.discountTypeAria')}
           />
 
           <div>
-            <Label htmlFor="patungan-discount-value">Nilai diskon</Label>
+            <Label htmlFor="patungan-discount-value">
+              {t('bill.discountValue')}
+            </Label>
             {discountType === 'percent' ? (
               <Input
                 id="patungan-discount-value"
@@ -222,13 +232,15 @@ export function BillSettingsDialog({
               <MoneyInput
                 value={discountValue}
                 onChange={setDiscountValue}
-                ariaLabel="Diskon bill nominal"
+                ariaLabel={t('bill.discountValueAria')}
               />
             )}
           </div>
 
           <div>
-            <Label htmlFor="patungan-discount-scope">Dasar diskon</Label>
+            <Label htmlFor="patungan-discount-scope">
+              {t('bill.discountScope')}
+            </Label>
             <Select
               id="patungan-discount-scope"
               value={discountScope}
@@ -236,17 +248,18 @@ export function BillSettingsDialog({
                 setDiscountScope(event.target.value as DiscountScope)
               }
             >
-              <option value="items">Per item (ongkir tidak ikut diskon)</option>
-              <option value="final">Total akhir (ongkir ikut diskon)</option>
+              <option value="items">{t('bill.scopeItems')}</option>
+              <option value="final">{t('bill.scopeFinal')}</option>
             </Select>
             <p className="mt-1 text-[11px] text-text-soft-400">
-              Total akhir = subtotal item + ongkir. Service dan pajak dihitung
-              setelah diskon.
+              {t('bill.scopeHelp')}
             </p>
           </div>
 
           <div>
-            <Label htmlFor="patungan-discount-allocation">Cara bagi diskon</Label>
+            <Label htmlFor="patungan-discount-allocation">
+              {t('bill.allocation')}
+            </Label>
             <Select
               id="patungan-discount-allocation"
               value={discountAllocation}
@@ -256,33 +269,39 @@ export function BillSettingsDialog({
                 )
               }
             >
-              <option value="proportional">Proporsional sesuai subtotal</option>
-              <option value="equal">Dibagi rata</option>
+              <option value="proportional">
+                {t('bill.allocationProportional')}
+              </option>
+              <option value="equal">{t('bill.allocationEqual')}</option>
             </Select>
           </div>
         </section>
 
         <section className="space-y-3 border-t border-stroke-soft-200 pt-5">
           <h3 className="text-label-md font-semibold text-text-strong-950">
-            Biaya tambahan
+            {t('bill.extraSection')}
           </h3>
 
           <div>
-            <Label htmlFor="patungan-shipping">Ongkir</Label>
+            <Label htmlFor="patungan-shipping">
+              {t('bill.shipping')}
+            </Label>
             <MoneyInput
               id="patungan-shipping"
               value={shippingAmount}
               onChange={setShippingAmount}
-              ariaLabel="Ongkir"
+              ariaLabel={t('bill.shippingAria')}
             />
             <p className="mt-1 text-[11px] text-text-soft-400">
-              Dibagi rata ke peserta yang punya item.
+              {t('bill.shippingHelp')}
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="patungan-service">Service charge</Label>
+              <Label htmlFor="patungan-service">
+                {t('bill.service')}
+              </Label>
               <Input
                 id="patungan-service"
                 type="number"
@@ -296,7 +315,7 @@ export function BillSettingsDialog({
               />
             </div>
             <div>
-              <Label htmlFor="patungan-tax">Pajak / PB1</Label>
+              <Label htmlFor="patungan-tax">{t('bill.tax')}</Label>
               <Input
                 id="patungan-tax"
                 type="number"
@@ -312,35 +331,39 @@ export function BillSettingsDialog({
           </div>
 
           <div>
-            <Label htmlFor="patungan-tax-base">Dasar pajak</Label>
+            <Label htmlFor="patungan-tax-base">
+              {t('bill.taxBase')}
+            </Label>
             <Select
               id="patungan-tax-base"
               value={taxBase}
               onChange={event => setTaxBase(event.target.value as TaxBase)}
             >
-              <option value="after_discount">Setelah diskon (umum)</option>
-              <option value="before_discount">Sebelum diskon</option>
+              <option value="after_discount">{t('bill.taxAfter')}</option>
+              <option value="before_discount">{t('bill.taxBefore')}</option>
             </Select>
           </div>
 
           <div>
-            <Label htmlFor="patungan-tip">Tip</Label>
+            <Label htmlFor="patungan-tip">{t('bill.tip')}</Label>
             <MoneyInput
               id="patungan-tip"
               value={tipAmount}
               onChange={setTipAmount}
-              ariaLabel="Tip"
+              ariaLabel={t('bill.tip')}
             />
           </div>
         </section>
 
         <section className="space-y-3 border-t border-stroke-soft-200 pt-5">
           <h3 className="text-label-md font-semibold text-text-strong-950">
-            Pembayaran
+            {t('bill.paymentSection')}
           </h3>
 
           <div>
-            <Label htmlFor="patungan-rounding">Pembulatan transfer</Label>
+            <Label htmlFor="patungan-rounding">
+              {t('bill.rounding')}
+            </Label>
             <Select
               id="patungan-rounding"
               value={String(rounding)}
@@ -348,33 +371,35 @@ export function BillSettingsDialog({
                 setRounding(Number(event.target.value) as RoundingStep)
               }
             >
-              <option value="0">Tanpa pembulatan</option>
-              <option value="500">Bulatkan ke Rp500</option>
-              <option value="1000">Bulatkan ke Rp1.000</option>
+              <option value="0">{t('bill.roundingNone')}</option>
+              <option value="500">{t('bill.rounding500')}</option>
+              <option value="1000">{t('bill.rounding1000')}</option>
             </Select>
           </div>
 
           <div>
-            <Label htmlFor="patungan-receipt">Total struk</Label>
+            <Label htmlFor="patungan-receipt">
+              {t('bill.receipt')}
+            </Label>
             <MoneyInput
               id="patungan-receipt"
               value={receiptTotal}
               onChange={setReceiptTotal}
-              ariaLabel="Total struk"
+              ariaLabel={t('bill.receiptAria')}
             />
             <p className="mt-1 text-[11px] text-text-soft-400">
-              Dipakai untuk mengecek selisih di ringkasan.
+              {t('bill.receiptHelp')}
             </p>
           </div>
         </section>
 
         <section className="space-y-3 border-t border-stroke-soft-200 pt-5">
           <h3 className="text-label-md font-semibold text-text-strong-950">
-            Nama sesi
+            {t('bill.sessionName')}
           </h3>
           <div>
             <Label htmlFor="patungan-session-title" className="sr-only">
-              Nama sesi
+              {t('bill.sessionName')}
             </Label>
             <Input
               id="patungan-session-title"
@@ -388,14 +413,16 @@ export function BillSettingsDialog({
         {claimedNet > 0 ? (
           <div className="space-y-1.5 rounded-10 border border-stroke-soft-200 bg-bg-weak-25 px-3.5 py-3 text-paragraph-sm">
             <div className="flex justify-between gap-3">
-              <span className="text-text-sub-600">Subtotal</span>
+              <span className="text-text-sub-600">{t('bill.subtotal')}</span>
               <span className="money text-text-strong-950">
                 {formatRupiah(claimedNet)}
               </span>
             </div>
             {preview.shipping > 0 && (
               <div className="flex justify-between gap-3">
-                <span className="text-text-sub-600">Ongkir</span>
+                <span className="text-text-sub-600">
+                  {t('bill.shipping')}
+                </span>
                 <span className="money text-text-strong-950">
                   +{formatRupiah(preview.shipping)}
                 </span>
@@ -403,7 +430,7 @@ export function BillSettingsDialog({
             )}
             {preview.discount > 0 && (
               <div className="flex justify-between gap-3 text-success-base">
-                <span>Diskon bill</span>
+                <span>{t('bill.discountLine')}</span>
                 <span className="money">
                   −{formatRupiah(preview.discount)}
                 </span>
@@ -411,7 +438,9 @@ export function BillSettingsDialog({
             )}
             {preview.service > 0 && (
               <div className="flex justify-between gap-3">
-                <span className="text-text-sub-600">Service</span>
+                <span className="text-text-sub-600">
+                  {t('bill.serviceLine')}
+                </span>
                 <span className="money text-text-strong-950">
                   +{formatRupiah(preview.service)}
                 </span>
@@ -419,7 +448,9 @@ export function BillSettingsDialog({
             )}
             {preview.tax > 0 && (
               <div className="flex justify-between gap-3">
-                <span className="text-text-sub-600">Pajak / PB1</span>
+                <span className="text-text-sub-600">
+                  {t('bill.taxLine')}
+                </span>
                 <span className="money text-text-strong-950">
                   +{formatRupiah(preview.tax)}
                 </span>
@@ -427,14 +458,18 @@ export function BillSettingsDialog({
             )}
             {preview.tip > 0 && (
               <div className="flex justify-between gap-3">
-                <span className="text-text-sub-600">Tip</span>
+                <span className="text-text-sub-600">
+                  {t('bill.tipLine')}
+                </span>
                 <span className="money text-text-strong-950">
                   +{formatRupiah(preview.tip)}
                 </span>
               </div>
             )}
             <div className="flex justify-between gap-3 border-t border-stroke-soft-200 pt-2 font-semibold">
-              <span className="text-text-strong-950">Total setelah biaya</span>
+              <span className="text-text-strong-950">
+                {t('bill.totalAfter')}
+              </span>
               <span className="money text-text-strong-950">
                 {formatRupiah(preview.total)}
               </span>
@@ -442,13 +477,13 @@ export function BillSettingsDialog({
           </div>
         ) : (
           <p className="text-paragraph-sm text-text-soft-400">
-            Tambahkan dan klaim item dulu untuk melihat preview perhitungan.
+            {t('bill.previewEmpty')}
           </p>
         )}
 
         {error && (
           <p className="text-label-sm text-error-base" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
       </form>

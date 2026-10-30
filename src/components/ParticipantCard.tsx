@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { RiAddLine, RiPencilLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import type { Participant } from '../types/database'
 import { formatRupiah } from '../lib/money'
 import { Avatar } from '../ui/Avatar'
@@ -25,6 +26,7 @@ export function ParticipantCard({
   onAdd,
   onEdit,
 }: ParticipantCardProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
 
   function submit(event: FormEvent) {
@@ -39,17 +41,21 @@ export function ParticipantCard({
     <Card className="p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-title-h6 text-text-strong-950">Peserta</h2>
+          <h2 className="text-title-h6 text-text-strong-950">
+            {t('participants.title')}
+          </h2>
           <p className="mt-0.5 text-paragraph-sm text-text-sub-600">
-            Setiap orang bisa klaim item dari perangkat masing-masing.
+            {t('participants.subtitle')}
           </p>
         </div>
-        <Badge>{participants.length} orang</Badge>
+        <Badge>
+          {t('common.personCount', { count: participants.length })}
+        </Badge>
       </div>
 
       {participants.length === 0 ? (
         <p className="mt-4 rounded-10 border border-dashed border-stroke-sub-300 bg-bg-weak-25 p-3 text-paragraph-sm text-text-soft-400">
-          Belum ada peserta. Tambahkan nama untuk mulai membagi bill.
+          {t('participants.empty')}
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-stroke-soft-200">
@@ -69,14 +75,16 @@ export function ParticipantCard({
                     {participant.name}
                   </p>
                   {participant.id === me && (
-                    <Badge tone="primary">Kamu</Badge>
+                    <Badge tone="primary">{t('common.you')}</Badge>
                   )}
                   {participant.is_payer && (
-                    <Badge tone="success">Penerima</Badge>
+                    <Badge tone="success">{t('common.payer')}</Badge>
                   )}
                 </div>
                 <p className="text-[11px] text-text-soft-400">
-                  {participant.is_payer ? 'Menalangi bill' : 'Peserta'}
+                  {participant.is_payer
+                    ? t('participants.payerSubtitle')
+                    : t('participants.role')}
                 </p>
               </div>
 
@@ -88,7 +96,9 @@ export function ParticipantCard({
                 variant="neutral"
                 mode="ghost"
                 size="icon"
-                aria-label={`Edit ${participant.name}`}
+                aria-label={t('participants.editAria', {
+                  name: participant.name,
+                })}
                 onClick={() => onEdit(participant)}
               >
                 <RiPencilLine className="size-4" />
@@ -105,8 +115,8 @@ export function ParticipantCard({
         <Input
           value={name}
           onChange={event => setName(event.target.value)}
-          placeholder="Tambah nama peserta, misal: Budi"
-          aria-label="Nama peserta baru"
+          placeholder={t('participants.addPlaceholder')}
+          aria-label={t('participants.newAria')}
           maxLength={40}
         />
         <Button
@@ -116,7 +126,7 @@ export function ParticipantCard({
           disabled={!name.trim() || adding}
         >
           <RiAddLine className="size-4" />
-          {adding ? 'Menambah...' : 'Tambah'}
+          {adding ? t('participants.adding') : t('participants.add')}
         </Button>
       </form>
     </Card>

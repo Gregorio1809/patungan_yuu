@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { RiCloseLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { cn } from './cn'
 
 const sizeClasses = {
@@ -28,6 +29,8 @@ export function Modal({
   children,
   footer,
 }: ModalProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -57,7 +60,7 @@ export function Modal({
             <Dialog.Close asChild>
               <button
                 type="button"
-                aria-label="Tutup"
+                aria-label={t('modal.close')}
                 className="-mr-1 -mt-1 flex size-9 items-center justify-center rounded-full text-text-soft-400 transition hover:bg-bg-weak-50 hover:text-text-strong-950"
               >
                 <RiCloseLine className="size-5" />

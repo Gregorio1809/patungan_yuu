@@ -4,6 +4,7 @@ import {
   RiErrorWarningLine,
   RiFileList3Line,
 } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { isLocalMode } from '../lib/dataMode'
 import { clearIdentity, getIdentity, setIdentity } from '../lib/identity'
 import { buildSummaryText, copyText } from '../lib/share'
@@ -54,6 +55,7 @@ type ConfirmState = {
 export function SessionView() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
   const store = useSessionStore()
   const result = useSessionResult()
   const toast = useToastStore()
@@ -161,11 +163,9 @@ export function SessionView() {
       if (slug) clearIdentity(slug)
       setMyParticipantId(null)
       setJoinOpen(true)
-      useToastStore
-        .getState()
-        .info('Kamu sudah keluar dari sesi ini. Gabung lagi untuk mengedit.')
+      useToastStore.getState().info(t('session.removed'))
     }
-  }, [participants, myParticipantId, store.loading, session, slug])
+  }, [participants, myParticipantId, store.loading, session, slug, t])
 
   useEffect(() => {
     const onFocus = () => {
@@ -198,7 +198,7 @@ export function SessionView() {
     }
 
     setJoinOpen(true)
-    toast.info('Gabung dulu untuk mengubah patungan ini.')
+    toast.info(t('session.joinFirst'))
     return false
   }
 
@@ -220,11 +220,11 @@ export function SessionView() {
       setJoinOpen(false)
       toast.success(
         existing
-          ? `Kamu bergabung sebagai ${participant.name}.`
-          : `Halo, ${participant.name}. Kamu sudah bergabung.`,
+          ? t('toast.joinedExisting', { name: participant.name })
+          : t('toast.joinedNew', { name: participant.name }),
       )
     } catch {
-      toast.error('Gagal bergabung. Coba lagi.')
+      toast.error(t('toast.joinError'))
     } finally {
       setJoining(false)
     }
@@ -236,9 +236,9 @@ export function SessionView() {
     setParticipantAdding(true)
     try {
       await store.addParticipant(name)
-      toast.success(`${name} ditambahkan.`)
+      toast.success(t('toast.participantAdded', { name }))
     } catch {
-      toast.error('Gagal menambah peserta. Coba lagi.')
+      toast.error(t('toast.participantAddError'))
     } finally {
       setParticipantAdding(false)
     }
@@ -257,9 +257,9 @@ export function SessionView() {
     try {
       await store.renameParticipant(target.id, name)
       setParticipantDialog({ open: false, participant: null })
-      toast.success('Nama peserta diperbarui.')
+      toast.success(t('toast.participantRenamed'))
     } catch {
-      toast.error('Gagal mengganti nama peserta. Coba lagi.')
+      toast.error(t('toast.participantRenameError'))
     } finally {
       setParticipantSaving(false)
     }
@@ -272,19 +272,23 @@ export function SessionView() {
     const removingSelf = target.id === myParticipantId
     setParticipantDialog({ open: false, participant: null })
     setConfirm({
-      title: 'Hapus peserta?',
-      description: `“${target.name}” akan dihapus beserta semua klaim itemnya.`,
-      confirmLabel: 'Hapus peserta',
+      title: t('confirm.removeParticipantTitle'),
+      description: t('confirm.removeParticipantBody', {
+        name: target.name,
+      }),
+      confirmLabel: t('confirm.removeParticipantAction'),
       action: async () => {
         setDeletePending(true)
         try {
           await store.removeParticipant(target.id)
           setConfirm(null)
           if (!removingSelf) {
-            toast.success(`${target.name} dihapus dari sesi.`)
+            toast.success(
+              t('toast.participantRemoved', { name: target.name }),
+            )
           }
         } catch {
-          toast.error('Gagal menghapus. Coba lagi.')
+          toast.error(t('toast.removeError'))
         } finally {
           setDeletePending(false)
         }
@@ -314,9 +318,11 @@ export function SessionView() {
         await store.addItem(input)
       }
       setItemDialog({ open: false, item: null })
-      toast.success(editing ? 'Item diperbarui.' : 'Item ditambahkan.')
+      toast.success(
+        editing ? t('toast.itemUpdated') : t('toast.itemAdded'),
+      )
     } catch {
-      toast.error('Gagal menyimpan item. Coba lagi.')
+      toast.error(t('toast.itemSaveError'))
     } finally {
       setItemSaving(false)
     }
@@ -327,9 +333,9 @@ export function SessionView() {
 
     try {
       await store.duplicateItem(item)
-      toast.success('Item diduplikat.')
+      toast.success(t('toast.itemDuplicated'))
     } catch {
-      toast.error('Gagal menduplikat item. Coba lagi.')
+      toast.error(t('toast.itemDuplicateError'))
     }
   }
 
@@ -337,17 +343,17 @@ export function SessionView() {
     if (!requireIdentity()) return
 
     setConfirm({
-      title: 'Hapus item?',
-      description: `“${item.name}” akan dihapus dari daftar item.`,
-      confirmLabel: 'Hapus item',
+      title: t('confirm.removeItemTitle'),
+      description: t('confirm.removeItemBody', { name: item.name }),
+      confirmLabel: t('confirm.removeItemAction'),
       action: async () => {
         setDeletePending(true)
         try {
           await store.deleteItem(item.id)
           setConfirm(null)
-          toast.success('Item dihapus.')
+          toast.success(t('toast.itemDeleted'))
         } catch {
-          toast.error('Gagal menghapus. Coba lagi.')
+          toast.error(t('toast.removeError'))
         } finally {
           setDeletePending(false)
         }
@@ -371,7 +377,7 @@ export function SessionView() {
     try {
       await store.setClaim(itemId, participantId, quantity)
     } catch {
-      toast.error('Gagal menyimpan klaim. Coba lagi.')
+      toast.error(t('toast.claimError'))
     } finally {
       setClaimPendingIds(previous =>
         previous.filter(id => id !== participantId),
@@ -389,9 +395,9 @@ export function SessionView() {
     try {
       await store.updateSession(patch)
       setSettingsOpen(false)
-      toast.success('Pengaturan sesi disimpan.')
+      toast.success(t('toast.settingsSaved'))
     } catch {
-      toast.error('Gagal menyimpan pengaturan. Coba lagi.')
+      toast.error(t('toast.settingsError'))
     } finally {
       setSettingsSaving(false)
     }
@@ -405,11 +411,11 @@ export function SessionView() {
       await store.setPayer(participantId)
       toast.success(
         participantId
-          ? 'Penerima transfer disimpan.'
-          : 'Penerima transfer dikosongkan.',
+          ? t('toast.payerSaved')
+          : t('toast.payerCleared'),
       )
     } catch {
-      toast.error('Gagal menyimpan penerima transfer. Coba lagi.')
+      toast.error(t('toast.payerError'))
     } finally {
       setSettlementPending(false)
     }
@@ -425,9 +431,9 @@ export function SessionView() {
     setSettlementPending(true)
     try {
       await store.setParticipantPaid(participantId, paid, amount)
-      toast.success(paid ? 'Ditandai lunas.' : 'Status lunas dibatalkan.')
+      toast.success(paid ? t('toast.paid') : t('toast.unpaid'))
     } catch {
-      toast.error('Gagal memperbarui status pembayaran. Coba lagi.')
+      toast.error(t('toast.paidError'))
     } finally {
       setSettlementPending(false)
     }
@@ -436,16 +442,17 @@ export function SessionView() {
   async function handleClaimUnclaimed(mode: 'all' | 'payer') {
     if (!requireIdentity()) return
 
+    if (mode === 'payer' && !participants.some(p => p.is_payer)) {
+      toast.error(t('toast.pickPayer'))
+      return
+    }
+
     setClaimingUnclaimed(true)
     try {
       const count = await store.claimUnclaimed(mode)
-      toast.success(`${count} item dibebankan.`)
-    } catch (error) {
-      toast.error(
-        error instanceof Error && error.message.startsWith('Pilih')
-          ? error.message
-          : 'Gagal membebankan item. Coba lagi.',
-      )
+      toast.success(t('toast.unclaimedAssigned', { count }))
+    } catch {
+      toast.error(t('toast.unclaimedError'))
     } finally {
       setClaimingUnclaimed(false)
     }
@@ -454,9 +461,9 @@ export function SessionView() {
   async function copyLink() {
     const copied = await copyText(shareUrl)
     if (copied) {
-      toast.success('Link disalin. Bagikan ke peserta lain.')
+      toast.success(t('toast.copyLink'))
     } else {
-      toast.error('Gagal menyalin link. Salin dari address bar saja.')
+      toast.error(t('toast.copyLinkError'))
     }
   }
 
@@ -468,12 +475,13 @@ export function SessionView() {
       result,
       participants,
       shareUrl,
+      language,
     )
     const copied = await copyText(text)
     if (copied) {
-      toast.success('Ringkasan disalin ke clipboard.')
+      toast.success(t('toast.summaryCopied'))
     } else {
-      toast.error('Gagal membagikan ringkasan. Coba lagi.')
+      toast.error(t('toast.summaryError'))
     }
   }
 
@@ -535,19 +543,21 @@ export function SessionView() {
               <RiErrorWarningLine className="size-6" />
             </span>
             <h1 className="mt-3 text-title-h5 text-text-strong-950">
-              Gagal memuat sesi
+              {t('session.loadErrorTitle')}
             </h1>
             <p className="mt-1 text-paragraph-sm text-text-sub-600">
-              {store.error}
+              {t('session.loadErrorBody')}
             </p>
             <div className="mt-5 flex justify-center gap-2">
-              <Button onClick={() => void retry()}>Coba lagi</Button>
+              <Button onClick={() => void retry()}>
+                {t('common.retry')}
+              </Button>
               <Button
                 variant="neutral"
                 mode="stroke"
                 onClick={() => navigate('/')}
               >
-                Ke beranda
+                {t('common.backHome')}
               </Button>
             </div>
           </Card>
@@ -566,14 +576,13 @@ export function SessionView() {
               <RiFileList3Line className="size-6" />
             </span>
             <h1 className="mt-3 text-title-h5 text-text-strong-950">
-              Sesi tidak ditemukan
+              {t('session.notFoundTitle')}
             </h1>
             <p className="mt-1 text-paragraph-sm text-text-sub-600">
-              Link mungkin salah atau sesinya sudah dihapus. Periksa lagi link
-              dari pembuat sesi.
+              {t('session.notFoundBody')}
             </p>
             <Button className="mt-5" onClick={() => navigate('/')}>
-              Buat sesi baru
+              {t('session.newSession')}
             </Button>
           </Card>
         </main>
@@ -594,20 +603,9 @@ export function SessionView() {
 
       <main className="mx-auto w-full max-w-[1200px] px-4 py-5 sm:px-6">
         <Alert tone="info" className="mb-5">
-          {isLocalMode ? (
-            <>
-              <span className="font-medium text-text-strong-950">
-                Mode lokal.
-              </span>{' '}
-              Data tersimpan di browser ini, jadi link hanya bisa dibuka di
-              browser yang sama.
-            </>
-          ) : (
-            <>
-              Semua orang yang punya link bisa mengubah data. Salin link lewat
-              tombol di kanan atas, lalu bagikan ke peserta.
-            </>
-          )}
+          {isLocalMode
+            ? t('session.localBanner')
+            : t('session.remoteBanner')}
         </Alert>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">

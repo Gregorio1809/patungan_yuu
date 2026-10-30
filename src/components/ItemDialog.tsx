@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from '../i18n/useTranslation'
 import type {
   DiscountType,
   ItemWithAssignments,
@@ -22,6 +23,8 @@ interface ItemDialogProps {
   onSave: (input: NewItemInput) => void
 }
 
+type ItemError = 'name' | 'percent' | null
+
 export function ItemDialog({
   open,
   onOpenChange,
@@ -29,12 +32,13 @@ export function ItemDialog({
   pending,
   onSave,
 }: ItemDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [price, setPrice] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [discountType, setDiscountType] = useState<DiscountType>('percent')
   const [discountValue, setDiscountValue] = useState(0)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ItemError>(null)
 
   useEffect(() => {
     if (!open) return
@@ -43,7 +47,7 @@ export function ItemDialog({
     setQuantity(item?.quantity ?? 1)
     setDiscountType(item?.discount_type ?? 'percent')
     setDiscountValue(item?.discount_value ?? 0)
-    setError('')
+    setError(null)
   }, [open, item])
 
   const pricing = calculateItemPricing(
@@ -56,14 +60,14 @@ export function ItemDialog({
   function submit() {
     const value = name.trim()
     if (!value) {
-      setError('Nama item wajib diisi.')
+      setError('name')
       return
     }
     if (discountType === 'percent' && discountValue > 100) {
-      setError('Diskon persen maksimal 100%.')
+      setError('percent')
       return
     }
-    setError('')
+    setError(null)
     onSave({
       name: value,
       price: Math.max(0, Math.round(price)),
@@ -77,8 +81,10 @@ export function ItemDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={item ? 'Edit item' : 'Tambah item'}
-      description="Harga, jumlah, dan diskon item."
+      title={
+        item ? t('itemDialog.editTitle') : t('itemDialog.addTitle')
+      }
+      description={t('itemDialog.description')}
       footer={
         <>
           <Button
@@ -87,10 +93,10 @@ export function ItemDialog({
             disabled={pending}
             onClick={() => onOpenChange(false)}
           >
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button type="submit" form="patungan-item-form" disabled={pending}>
-            {pending ? 'Menyimpan...' : 'Simpan item'}
+            {pending ? t('itemDialog.saving') : t('itemDialog.save')}
           </Button>
         </>
       }
@@ -104,12 +110,12 @@ export function ItemDialog({
         }}
       >
         <div>
-          <Label htmlFor="patungan-item-name">Nama item</Label>
+          <Label htmlFor="patungan-item-name">{t('itemDialog.name')}</Label>
           <Input
             id="patungan-item-name"
             value={name}
             onChange={event => setName(event.target.value)}
-            placeholder="Contoh: Nasi goreng seafood"
+            placeholder={t('itemDialog.namePlaceholder')}
             maxLength={80}
             autoFocus
           />
@@ -117,17 +123,19 @@ export function ItemDialog({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="patungan-item-price">Harga satuan</Label>
+            <Label htmlFor="patungan-item-price">
+              {t('itemDialog.price')}
+            </Label>
             <MoneyInput
               id="patungan-item-price"
               value={price}
               onChange={setPrice}
-              ariaLabel="Harga satuan"
+              ariaLabel={t('itemDialog.price')}
             />
           </div>
           <div>
             <span className="mb-1.5 block text-label-sm text-text-sub-600">
-              Jumlah
+              {t('itemDialog.quantity')}
             </span>
             <div className="flex h-10 items-center">
               <Stepper
@@ -135,7 +143,7 @@ export function ItemDialog({
                 onChange={setQuantity}
                 min={1}
                 max={99}
-                label="jumlah"
+                label={t('common.quantity')}
               />
             </div>
           </div>
@@ -143,7 +151,7 @@ export function ItemDialog({
 
         <div>
           <span className="mb-1.5 block text-label-sm text-text-sub-600">
-            Diskon item
+            {t('itemDialog.discount')}
           </span>
           <SegmentedControl
             value={discountType}
@@ -152,10 +160,10 @@ export function ItemDialog({
               setDiscountValue(0)
             }}
             options={[
-              { value: 'percent', label: 'Persen' },
-              { value: 'amount', label: 'Nominal' },
+              { value: 'percent', label: t('common.percent') },
+              { value: 'amount', label: t('common.amount') },
             ]}
-            ariaLabel="Tipe diskon item"
+            ariaLabel={t('itemDialog.discountTypeAria')}
           />
           <div className="mt-2">
             {discountType === 'percent' ? (
@@ -168,13 +176,13 @@ export function ItemDialog({
                 onChange={event =>
                   setDiscountValue(Number(event.target.value) || 0)
                 }
-                aria-label="Diskon persen"
+                aria-label={t('itemDialog.percentAria')}
               />
             ) : (
               <MoneyInput
                 value={discountValue}
                 onChange={setDiscountValue}
-                ariaLabel="Diskon nominal"
+                ariaLabel={t('itemDialog.amountAria')}
               />
             )}
           </div>
@@ -182,19 +190,23 @@ export function ItemDialog({
 
         <div className="rounded-10 border border-stroke-soft-200 bg-bg-weak-25 px-3.5 py-3 text-paragraph-sm">
           <div className="flex justify-between gap-3">
-            <span className="text-text-sub-600">Harga sebelum diskon</span>
+            <span className="text-text-sub-600">
+              {t('itemDialog.gross')}
+            </span>
             <span className="money text-text-strong-950">
               {formatRupiah(pricing.gross)}
             </span>
           </div>
           {pricing.discount > 0 && (
             <div className="mt-1 flex justify-between gap-3 text-success-base">
-              <span>Diskon</span>
+              <span>{t('itemDialog.discountLine')}</span>
               <span className="money">−{formatRupiah(pricing.discount)}</span>
             </div>
           )}
           <div className="mt-2 flex justify-between gap-3 border-t border-stroke-soft-200 pt-2 font-semibold">
-            <span className="text-text-strong-950">Harga bersih</span>
+            <span className="text-text-strong-950">
+              {t('itemDialog.net')}
+            </span>
             <span className="money text-text-strong-950">
               {formatRupiah(pricing.net)}
             </span>
@@ -203,7 +215,11 @@ export function ItemDialog({
 
         {error && (
           <p className="text-label-sm text-error-base" role="alert">
-            {error}
+            {t(
+              error === 'name'
+                ? 'itemDialog.nameRequired'
+                : 'itemDialog.percentMax',
+            )}
           </p>
         )}
       </form>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RiCheckLine, RiFileCopyLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { copyText } from '../lib/share'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -11,8 +12,8 @@ interface QrDialogProps {
 }
 
 export function QrDialog({ open, onOpenChange, url }: QrDialogProps) {
+  const { t } = useTranslation()
   const [dataUrl, setDataUrl] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -21,7 +22,6 @@ export function QrDialog({ open, onOpenChange, url }: QrDialogProps) {
 
     let cancelled = false
     setLoading(true)
-    setError('')
     setCopied(false)
 
     import('qrcode')
@@ -37,7 +37,6 @@ export function QrDialog({ open, onOpenChange, url }: QrDialogProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setError('Gagal membuat QR code. Link tetap bisa disalin.')
           setDataUrl('')
         }
       })
@@ -62,8 +61,8 @@ export function QrDialog({ open, onOpenChange, url }: QrDialogProps) {
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Bagikan via QR"
-      description="Minta peserta memindai kode ini dengan kamera HP."
+      title={t('qr.title')}
+      description={t('qr.description')}
       size="sm"
       footer={
         <Button
@@ -77,7 +76,7 @@ export function QrDialog({ open, onOpenChange, url }: QrDialogProps) {
           ) : (
             <RiFileCopyLine className="size-4" />
           )}
-          {copied ? 'Link tersalin' : 'Salin link'}
+          {copied ? t('common.copied') : t('common.copyLink')}
         </Button>
       }
     >
@@ -88,19 +87,20 @@ export function QrDialog({ open, onOpenChange, url }: QrDialogProps) {
           ) : dataUrl ? (
             <img
               src={dataUrl}
-              alt="QR code untuk link patungan"
+              alt={t('qr.alt')}
               className="h-auto w-full max-w-64"
             />
           ) : (
-            <p className="text-paragraph-sm text-error-base">{error}</p>
+            <p className="text-paragraph-sm text-error-base">
+              {t('qr.error')}
+            </p>
           )}
         </div>
         <p className="mt-3 w-full break-all rounded-10 bg-bg-weak-50 px-3 py-2 text-center text-[11px] text-text-sub-600">
           {url}
         </p>
         <p className="mt-3 text-center text-[11px] text-text-soft-400">
-          QR mengarah ke link sesi ini. Peserta bisa memindai untuk langsung
-          bergabung.
+          {t('qr.note')}
         </p>
       </div>
     </Modal>

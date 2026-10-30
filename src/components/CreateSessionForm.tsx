@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { RiAddLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Input } from '../ui/Input'
@@ -18,17 +19,18 @@ export function CreateSessionForm({
   localMode,
   onCreate,
 }: CreateSessionFormProps) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState('')
-  const [error, setError] = useState('')
+  const [invalid, setInvalid] = useState(false)
 
   function submit(event: FormEvent) {
     event.preventDefault()
     const value = title.trim()
     if (!value) {
-      setError('Nama sesi wajib diisi.')
+      setInvalid(true)
       return
     }
-    setError('')
+    setInvalid(false)
     onCreate(value)
   }
 
@@ -36,23 +38,25 @@ export function CreateSessionForm({
     <Card className="p-4 sm:p-5">
       <form onSubmit={submit}>
         <div>
-          <Label htmlFor="patungan-new-session-title">Nama sesi</Label>
+          <Label htmlFor="patungan-new-session-title">
+            {t('create.name')}
+          </Label>
           <Input
             id="patungan-new-session-title"
             value={title}
             onChange={event => setTitle(event.target.value)}
             maxLength={80}
-            placeholder="Contoh: Makan malam kantor"
+            placeholder={t('create.placeholder')}
             autoComplete="off"
           />
           <p className="mt-2 text-[11px] text-text-soft-400">
-            Diskon, service, pajak, dan tip bisa diatur setelah sesi dibuat.
+            {t('create.hint')}
           </p>
         </div>
 
-        {error && (
+        {invalid && (
           <p className="mt-2 text-label-sm text-error-base" role="alert">
-            {error}
+            {t('create.required')}
           </p>
         )}
 
@@ -63,16 +67,14 @@ export function CreateSessionForm({
         >
           {!pending && !disabled && <RiAddLine className="size-4" />}
           {disabled
-            ? 'Supabase belum tersambung'
+            ? t('create.disabled')
             : pending
-              ? 'Membuat sesi...'
-              : 'Buat sesi'}
+              ? t('create.pending')
+              : t('create.submit')}
         </Button>
 
         <p className="mt-3 text-center text-[11px] text-text-soft-400">
-          {localMode
-            ? 'Mode lokal: link hanya bisa dibuka di browser ini.'
-            : 'Semua orang yang punya link bisa ikut mengisi.'}
+          {localMode ? t('create.localHint') : t('create.remoteHint')}
         </p>
       </form>
     </Card>

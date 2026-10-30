@@ -22,6 +22,8 @@ Aplikasi web untuk bagi-bagi bill tanpa drama. Buat sesi, bagikan link, setiap p
 - Aksi cepat untuk item belum diklaim: bagi rata ke semua peserta atau bebankan ke penerima.
 - Ringkasan per orang + tombol bagikan ke WhatsApp atau clipboard.
 - Item yang belum diklaim ditandai dan tidak dibebankan ke siapa pun.
+- Antarmuka dua bahasa: Indonesia dan English, dengan switch di header.
+- Tema terang/gelap dengan switch; pilihan bahasa dan tema tersimpan di perangkat.
 - Mobile-first, fokus keyboard, dan menghormati `prefers-reduced-motion`.
 
 ## Stack
@@ -82,6 +84,15 @@ Form awal hanya meminta nama sesi. Diskon bill, ongkir, service, pajak, tip, pem
 
 Production tanpa env Supabase akan menampilkan panduan setup dan menonaktifkan pembuatan sesi, supaya data tidak tersimpan lokal di browser pengunjung.
 
+## Bahasa dan tema
+
+Switch bahasa (ID/EN) dan tema (terang/gelap) ada di header Home dan halaman sesi. Preferensi disimpan di `localStorage` dengan key `patungan:preferences`, jadi tetap sama setelah reload.
+
+- Bahasa juga mengubah `<html lang>`, judul dokumen, dan meta description.
+- Tema mengikuti `prefers-color-scheme` saat belum ada pilihan, lalu menyimpan pilihan eksplisit.
+- Inline script di [`index.html`](./index.html) menerapkan tema dan bahasa sebelum React mount supaya tidak ada flash warna.
+- Token tema gelap ada di blok `.dark` pada [`src/styles.css`](./src/styles.css).
+
 ## Pembayaran
 
 - Pilih siapa yang menalangi bill di panel **Pembayaran**. Panel ini menampilkan arah transfer dan total yang belum dibayar.
@@ -131,6 +142,8 @@ src/
 ├─ lib/share.ts           # teks ringkasan, share, clipboard
 ├─ store/session.ts       # state sesi, mutasi, sinkronisasi
 ├─ store/toast.ts         # notifikasi
+├─ store/preferences.ts   # bahasa + tema, tersimpan di localStorage
+├─ i18n/translations.ts   # kamus Indonesia/English
 ├─ views/                 # Home, Session, NotFound
 ├─ components/            # item, klaim, peserta, ringkasan, modal
 └─ ui/                    # primitives bergaya AlignUI
@@ -180,6 +193,7 @@ Jika butuh isolasi lebih kuat, langkah lanjutan yang bisa diambil:
 
 ## Troubleshooting
 
+- **`ERR_UNSUPPORTED_ESM_URL_SCHEME` / protokol `node:`** saat `npm run dev`: Node terlalu lama. Vite 8 membutuhkan Node `^20.19.0` atau `>=22.12.0`. Jalankan `nvm use` (membaca `.nvmrc`) atau `nvm use 24`, lalu `npm run dev`.
 - **`vite` atau `vitest` tidak ditemukan** saat `npm run dev`/`npm run test`: environment mungkin memasang `NODE_ENV=production`. Jalankan `npm install --include=dev`.
 - **Dev server menampilkan "Supabase belum tersambung"**: pastikan tidak ada `VITE_DATA_MODE=supabase`, lalu restart. Mode lokal aktif otomatis saat dev server tanpa env Supabase.
 - **Masih "Mode lokal" padahal env Supabase sudah diisi**: restart dev server, pastikan nama variabel benar, dan tidak ada `VITE_DATA_MODE=local`.
@@ -190,4 +204,4 @@ Jika butuh isolasi lebih kuat, langkah lanjutan yang bisa diambil:
 
 ## Kustomisasi tampilan
 
-Token warna, font, radius, dan style komponen ada di [`src/styles.css`](./src/styles.css) (blok `@theme` dan `@layer components`). Font Ranade dimuat dari Fontshare di [`index.html`](./index.html). Primitive UI ada di `src/ui/`.
+Token warna, font, radius, dan style komponen ada di [`src/styles.css`](./src/styles.css) (blok `@theme`, `.dark`, dan `@layer components`). Font Ranade dimuat dari Fontshare di [`index.html`](./index.html). Primitive UI ada di `src/ui/`. Untuk menambah bahasa, tambahkan key yang sama di kamus `id` dan `en` pada `src/i18n/translations.ts`.

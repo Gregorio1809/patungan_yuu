@@ -5,6 +5,7 @@ import {
   RiPencilLine,
   RiUserLine,
 } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import type { ItemWithAssignments, Participant } from '../types/database'
 import { calculateItemPricing } from '../lib/calculate'
 import { formatRupiah } from '../lib/money'
@@ -32,18 +33,22 @@ export function ItemCard({
   onDuplicate,
   onDelete,
 }: ItemCardProps) {
+  const { t } = useTranslation()
+
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-stroke-soft-200 px-4 py-3.5 sm:px-5">
         <div>
-          <h2 className="text-title-h6 text-text-strong-950">Item</h2>
+          <h2 className="text-title-h6 text-text-strong-950">
+            {t('items.title')}
+          </h2>
           <p className="mt-0.5 text-paragraph-sm text-text-sub-600">
-            {items.length} item
+            {t('common.itemCount', { count: items.length })}
           </p>
         </div>
         <Button variant="primary" size="sm" onClick={onAdd}>
           <RiAddLine className="size-4" />
-          Tambah item
+          {t('items.add')}
         </Button>
       </div>
 
@@ -53,14 +58,19 @@ export function ItemCard({
             <RiUserLine className="size-5" />
           </span>
           <h3 className="mt-3 text-label-md text-text-strong-950">
-            Belum ada item
+            {t('items.emptyTitle')}
           </h3>
           <p className="mt-1 max-w-sm text-paragraph-sm text-text-sub-600">
-            Tambahkan item beserta harganya, lalu peserta bisa mengklaim.
+            {t('items.emptyBody')}
           </p>
-          <Button variant="neutral" mode="stroke" className="mt-4" onClick={onAdd}>
+          <Button
+            variant="neutral"
+            mode="stroke"
+            className="mt-4"
+            onClick={onAdd}
+          >
             <RiAddLine className="size-4" />
-            Tambah item pertama
+            {t('items.emptyCta')}
           </Button>
         </div>
       ) : (
@@ -105,9 +115,13 @@ export function ItemCard({
                       >
                         {item.name}
                       </h3>
-                      {discount && <Badge tone="primary">Diskon {discount}</Badge>}
+                      {discount && (
+                        <Badge tone="primary">
+                          {t('items.discountBadge', { value: discount })}
+                        </Badge>
+                      )}
                       {claims.length === 0 && (
-                        <Badge tone="warning">Belum diklaim</Badge>
+                        <Badge tone="warning">{t('items.unclaimed')}</Badge>
                       )}
                     </div>
 
@@ -116,7 +130,8 @@ export function ItemCard({
                       {item.quantity > 1 && ` × ${item.quantity}`}
                       {pricing.discount > 0 && (
                         <>
-                          {' · potongan '}
+                          {' · '}
+                          {t('items.discountLabel')}{' '}
                           <span className="money">
                             {formatRupiah(pricing.discount)}
                           </span>
@@ -143,7 +158,7 @@ export function ItemCard({
                       ))}
                       {claims.length === 0 && (
                         <span className="text-[11px] text-text-soft-400">
-                          Belum ada yang klaim item ini
+                          {t('items.noClaims')}
                         </span>
                       )}
                     </div>
@@ -161,13 +176,13 @@ export function ItemCard({
                         onClick={() => onClaim(item)}
                       >
                         <RiUserLine className="size-4" />
-                        Klaim
+                        {t('items.claim')}
                       </Button>
                       <Button
                         variant="neutral"
                         mode="ghost"
                         size="icon"
-                        aria-label="Duplikat item"
+                        aria-label={t('items.duplicateAria')}
                         onClick={() => onDuplicate(item)}
                       >
                         <RiFileCopyLine className="size-4" />
@@ -176,7 +191,7 @@ export function ItemCard({
                         variant="neutral"
                         mode="ghost"
                         size="icon"
-                        aria-label="Edit item"
+                        aria-label={t('items.editAria')}
                         onClick={() => onEdit(item)}
                       >
                         <RiPencilLine className="size-4" />
@@ -185,7 +200,7 @@ export function ItemCard({
                         variant="error"
                         mode="ghost"
                         size="icon"
-                        aria-label="Hapus item"
+                        aria-label={t('items.deleteAria')}
                         onClick={() => onDelete(item)}
                       >
                         <RiDeleteBinLine className="size-4" />

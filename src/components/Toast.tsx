@@ -4,6 +4,7 @@ import {
   RiErrorWarningLine,
   RiInformationLine,
 } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import type { ToastTone } from '../store/toast'
 import { cn } from '../ui/cn'
 
@@ -33,6 +34,7 @@ const config = {
 >
 
 export function Toast({ message, tone, onClose }: ToastProps) {
+  const { t } = useTranslation()
   const { icon: Icon, className } = config[tone]
 
   return (
@@ -48,7 +50,7 @@ export function Toast({ message, tone, onClose }: ToastProps) {
       <span className="min-w-0 flex-1 text-text-strong-950">{message}</span>
       <button
         type="button"
-        aria-label="Tutup notifikasi"
+        aria-label={t('toast.close')}
         className="flex size-7 shrink-0 items-center justify-center rounded-full text-text-soft-400 transition hover:bg-bg-white-0 hover:text-text-strong-950"
         onClick={onClose}
       >

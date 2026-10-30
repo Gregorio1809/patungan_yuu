@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RiDeleteBinLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import type { Participant } from '../types/database'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
@@ -26,22 +27,23 @@ export function ParticipantDialog({
   onSave,
   onRemove,
 }: ParticipantDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
-  const [error, setError] = useState('')
+  const [invalid, setInvalid] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setName(participant?.name ?? '')
-    setError('')
+    setInvalid(false)
   }, [open, participant])
 
   function submit() {
     const value = name.trim()
     if (!value) {
-      setError('Nama peserta wajib diisi.')
+      setInvalid(true)
       return
     }
-    setError('')
+    setInvalid(false)
     onSave(value)
   }
 
@@ -49,8 +51,8 @@ export function ParticipantDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit peserta"
-      description="Ganti nama tanpa menghilangkan klaim item."
+      title={t('participantDialog.title')}
+      description={t('participantDialog.description')}
       size="sm"
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -61,7 +63,7 @@ export function ParticipantDialog({
             onClick={onRemove}
           >
             <RiDeleteBinLine className="size-4" />
-            Hapus peserta
+            {t('participantDialog.remove')}
           </Button>
           <div className="flex justify-end gap-2">
             <Button
@@ -70,14 +72,16 @@ export function ParticipantDialog({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Batal
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               form="patungan-participant-form"
               disabled={pending}
             >
-              {pending ? 'Menyimpan...' : 'Simpan nama'}
+              {pending
+                ? t('participantDialog.saving')
+                : t('participantDialog.save')}
             </Button>
           </div>
         </div>
@@ -98,13 +102,15 @@ export function ParticipantDialog({
                 {participant.name}
               </p>
               <p className="text-[11px] text-text-soft-400">
-                Klaim item tetap tersimpan saat nama diubah.
+                {t('participantDialog.claimsKept')}
               </p>
             </div>
           </div>
         )}
 
-        <Label htmlFor="patungan-participant-name">Nama peserta</Label>
+        <Label htmlFor="patungan-participant-name">
+          {t('participantDialog.name')}
+        </Label>
         <Input
           id="patungan-participant-name"
           value={name}
@@ -112,9 +118,9 @@ export function ParticipantDialog({
           maxLength={40}
           autoFocus
         />
-        {error && (
+        {invalid && (
           <p className="mt-1.5 text-label-sm text-error-base" role="alert">
-            {error}
+            {t('participantDialog.required')}
           </p>
         )}
       </form>

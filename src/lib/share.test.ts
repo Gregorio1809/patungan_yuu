@@ -146,4 +146,27 @@ describe('buildSummaryText', () => {
     expect(text).toContain(`Total: ${formatRupiah(result.grandTotal)}`)
     expect(result.shippingAmount).toBe(15_000)
   })
+
+  it('menghasilkan ringkasan bahasa Inggris', () => {
+    const result = makeResult()
+    const participants = [
+      participant('ani', 'Ani'),
+      participant('budi', 'Budi', { is_payer: true }),
+      participant('citra', 'Citra'),
+    ]
+
+    const text = buildSummaryText(
+      { title: 'English test', rounding: 0 },
+      result,
+      participants,
+      undefined,
+      'en',
+    )
+
+    expect(text).toContain('Subtotal:')
+    expect(text).toContain('Transfer to Budi:')
+    expect(text).toContain('Budi (payer)')
+    expect(text).toContain('Ani:')
+    expect(text).not.toContain('Transfer ke')
+  })
 })

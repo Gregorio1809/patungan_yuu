@@ -1,4 +1,5 @@
 import { RiDeleteBinLine } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
@@ -17,10 +18,12 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = 'Hapus',
+  confirmLabel,
   pending,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <Modal
       open={open}
@@ -36,7 +39,7 @@ export function ConfirmDialog({
             disabled={pending}
             onClick={() => onOpenChange(false)}
           >
-            Batal
+            {t('common.cancel')}
           </Button>
           <Button
             variant="error"
@@ -46,13 +49,15 @@ export function ConfirmDialog({
             }}
           >
             <RiDeleteBinLine className="size-4" />
-            {pending ? 'Memproses...' : confirmLabel}
+            {pending
+              ? t('common.processing')
+              : (confirmLabel ?? t('common.delete'))}
           </Button>
         </>
       }
     >
       <p className="text-paragraph-sm text-text-sub-600">
-        Tindakan ini hanya berlaku di prototype dan tidak bisa dibatalkan.
+        {t('confirm.note')}
       </p>
     </Modal>
   )

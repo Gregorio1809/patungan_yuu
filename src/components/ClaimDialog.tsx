@@ -1,3 +1,4 @@
+import { useTranslation } from '../i18n/useTranslation'
 import type { ItemWithAssignments, Participant } from '../types/database'
 import { calculateItemPricing } from '../lib/calculate'
 import { formatRupiah } from '../lib/money'
@@ -30,6 +31,7 @@ export function ClaimDialog({
   pendingIds,
   onSetClaim,
 }: ClaimDialogProps) {
+  const { t } = useTranslation()
   const pendingSet = new Set(pendingIds ?? [])
   const pricing = item
     ? calculateItemPricing(
@@ -56,20 +58,26 @@ export function ClaimDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Klaim item"
+      title={t('claim.title')}
       description={item?.name}
       footer={
-        <Button variant="neutral" mode="stroke" onClick={() => onOpenChange(false)}>
-          Selesai
+        <Button
+          variant="neutral"
+          mode="stroke"
+          onClick={() => onOpenChange(false)}
+        >
+          {t('claim.done')}
         </Button>
       }
     >
       {item && pricing && (
         <Alert tone="info">
-          Centang peserta yang ikut menikmati item ini. Bobot 1 berarti satu
-          porsi, dan total item dibagi sesuai bobot semua pengklaim.
+          {t('claim.info')}
           <span className="mt-1 block font-medium text-text-strong-950">
-            Nilai bersih {formatRupiah(pricing.net)} · {claimWeight} bobot klaim
+            {t('claim.net', {
+              amount: formatRupiah(pricing.net),
+            })}{' '}
+            {t('claim.weight', { count: claimWeight })}
           </span>
         </Alert>
       )}
@@ -85,7 +93,7 @@ export function ClaimDialog({
               <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
                 <input
                   type="checkbox"
-                  className="size-4 shrink-0 accent-primary-base"
+                  className="size-4 shrink-0 accent-primary-text"
                   checked={quantity !== null}
                   disabled={pendingSet.has(participant.id)}
                   onChange={event =>
@@ -99,7 +107,9 @@ export function ClaimDialog({
                 <span className="min-w-0 truncate text-label-md text-text-strong-950">
                   {participant.name}
                 </span>
-                {participant.id === me && <Badge tone="primary">Kamu</Badge>}
+                {participant.id === me && (
+                  <Badge tone="primary">{t('common.you')}</Badge>
+                )}
               </label>
 
               {quantity !== null && (

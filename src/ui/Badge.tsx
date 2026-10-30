@@ -12,7 +12,7 @@ export type BadgeTone =
 const toneClasses: Record<BadgeTone, string> = {
   neutral:
     'bg-bg-weak-50 text-text-sub-600 ring-1 ring-inset ring-stroke-soft-200',
-  primary: 'bg-primary-alpha-10 text-primary-base',
+  primary: 'bg-primary-alpha-10 text-primary-text',
   success: 'bg-success-lighter text-success-base',
   warning: 'bg-warning-lighter text-warning-base',
   error: 'bg-error-lighter text-error-base',

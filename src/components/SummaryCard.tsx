@@ -3,6 +3,7 @@ import {
   RiSettings3Line,
   RiShareLine,
 } from '@remixicon/react'
+import { useTranslation } from '../i18n/useTranslation'
 import type { CalcResult } from '../lib/calculate'
 import { formatRupiah } from '../lib/money'
 import type { Participant } from '../types/database'
@@ -33,6 +34,7 @@ export function SummaryCard({
   onShare,
   onClaimUnclaimed,
 }: SummaryCardProps) {
+  const { t } = useTranslation()
   const claimedGross = result.items
     .filter(item => item.claimed)
     .reduce((sum, item) => sum + item.gross, 0)
@@ -46,43 +48,56 @@ export function SummaryCard({
     .slice(0, 3)
     .join(', ')
   const extraUnclaimed = Math.max(0, result.unclaimedItems.length - 3)
+  const unclaimedLabel = `${unclaimedNames}${
+    extraUnclaimed > 0
+      ? ` ${t('summary.unclaimedMore', { count: extraUnclaimed })}`
+      : ''
+  }`
   const payer = participants.find(participant => participant.is_payer) ?? null
   const hasReceipt = receiptTotal > 0
   const receiptDiff = result.grandTotal - receiptTotal
-  const receiptTone =
-    receiptDiff === 0 ? 'success' : 'warning'
+  const receiptTone = receiptDiff === 0 ? 'success' : 'warning'
   const receiptMessage =
     receiptDiff === 0
-      ? 'Cocok dengan total struk.'
+      ? t('summary.receiptMatch')
       : receiptDiff > 0
-        ? `Total aplikasi ${formatRupiah(receiptDiff)} lebih tinggi dari struk.`
-        : `Total aplikasi ${formatRupiah(Math.abs(receiptDiff))} lebih rendah dari struk.`
+        ? t('summary.receiptHigher', {
+            amount: formatRupiah(receiptDiff),
+          })
+        : t('summary.receiptLower', {
+            amount: formatRupiah(Math.abs(receiptDiff)),
+          })
 
   return (
     <Card className="p-4 sm:p-5" id="ringkasan">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-title-h6 text-text-strong-950">Ringkasan</h2>
+          <h2 className="text-title-h6 text-text-strong-950">
+            {t('summary.title')}
+          </h2>
           <p className="mt-0.5 text-paragraph-sm text-text-sub-600">
-            Total yang harus dibayar tiap orang.
+            {t('summary.subtitle')}
           </p>
         </div>
         <Button variant="neutral" mode="stroke" size="sm" onClick={onShare}>
           <RiShareLine className="size-4" />
-          Bagikan
+          {t('summary.share')}
         </Button>
       </div>
 
       {result.unclaimedItems.length > 0 && (
         <Alert
           tone="warning"
-          title={`${result.unclaimedItems.length} item belum diklaim`}
+          title={t('summary.unclaimedTitle', {
+            count: result.unclaimedItems.length,
+          })}
           className="mt-4"
         >
           <p>
-            {unclaimedNames}
-            {extraUnclaimed > 0 ? ` +${extraUnclaimed} lainnya` : ''} (
-            {formatRupiah(unclaimedTotal)}) tidak dibebankan ke siapa pun.
+            {t('summary.unclaimedBody', {
+              names: unclaimedLabel,
+              amount: formatRupiah(unclaimedTotal),
+            })}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button
@@ -92,7 +107,7 @@ export function SummaryCard({
               disabled={claimingUnclaimed}
               onClick={() => onClaimUnclaimed('all')}
             >
-              Bagi rata semua
+              {t('summary.splitAll')}
             </Button>
             {payer && (
               <Button
@@ -102,7 +117,7 @@ export function SummaryCard({
                 disabled={claimingUnclaimed}
                 onClick={() => onClaimUnclaimed('payer')}
               >
-                Bebankan ke {payer.name}
+                {t('summary.chargePayer', { name: payer.name })}
               </Button>
             )}
           </div>
@@ -111,14 +126,18 @@ export function SummaryCard({
 
       <dl className="mt-4 space-y-2 text-paragraph-sm">
         <div className="flex justify-between gap-3">
-          <dt className="text-text-sub-600">Subtotal item</dt>
+          <dt className="text-text-sub-600">
+            {t('summary.itemSubtotal')}
+          </dt>
           <dd className="money text-text-strong-950">
             {formatRupiah(claimedGross)}
           </dd>
         </div>
         {itemDiscount > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-text-sub-600">Diskon item</dt>
+            <dt className="text-text-sub-600">
+              {t('summary.itemDiscount')}
+            </dt>
             <dd className="money text-success-base">
               −{formatRupiah(itemDiscount)}
             </dd>
@@ -126,7 +145,7 @@ export function SummaryCard({
         )}
         {result.shippingAmount > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-text-sub-600">Ongkir</dt>
+            <dt className="text-text-sub-600">{t('summary.shipping')}</dt>
             <dd className="money text-text-strong-950">
               +{formatRupiah(result.shippingAmount)}
             </dd>
@@ -134,7 +153,9 @@ export function SummaryCard({
         )}
         {result.billDiscount > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-text-sub-600">Diskon bill</dt>
+            <dt className="text-text-sub-600">
+              {t('summary.billDiscount')}
+            </dt>
             <dd className="money text-success-base">
               −{formatRupiah(result.billDiscount)}
             </dd>
@@ -142,7 +163,7 @@ export function SummaryCard({
         )}
         {result.serviceAmount > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-text-sub-600">Service</dt>
+            <dt className="text-text-sub-600">{t('summary.service')}</dt>
             <dd className="money text-text-strong-950">
               +{formatRupiah(result.serviceAmount)}
             </dd>
@@ -150,7 +171,7 @@ export function SummaryCard({
         )}
         {result.taxAmount > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-text-sub-600">Pajak / PB1</dt>
+            <dt className="text-text-sub-600">{t('summary.tax')}</dt>
             <dd className="money text-text-strong-950">
               +{formatRupiah(result.taxAmount)}
             </dd>
@@ -158,7 +179,7 @@ export function SummaryCard({
         )}
         {result.tipAmount > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-text-sub-600">Tip</dt>
+            <dt className="text-text-sub-600">{t('summary.tip')}</dt>
             <dd className="money text-text-strong-950">
               +{formatRupiah(result.tipAmount)}
             </dd>
@@ -166,7 +187,7 @@ export function SummaryCard({
         )}
         <div className="flex justify-between gap-3 border-t border-stroke-soft-200 pt-3">
           <dt className="text-label-md font-semibold text-text-strong-950">
-            Total
+            {t('summary.total')}
           </dt>
           <dd className="money text-title-h6 text-text-strong-950">
             {formatRupiah(result.grandTotal)}
@@ -177,15 +198,15 @@ export function SummaryCard({
       {hasReceipt && (
         <Alert
           tone={receiptTone}
-          title="Cek total struk"
+          title={t('summary.receiptTitle')}
           className="mt-3"
         >
           <div className="flex justify-between gap-3">
-            <span>Total struk</span>
+            <span>{t('summary.receiptTotal')}</span>
             <span className="money">{formatRupiah(receiptTotal)}</span>
           </div>
           <div className="mt-1 flex justify-between gap-3">
-            <span>Total aplikasi</span>
+            <span>{t('summary.appTotal')}</span>
             <span className="money">{formatRupiah(result.grandTotal)}</span>
           </div>
           <p className="mt-1.5 font-medium">{receiptMessage}</p>
@@ -199,7 +220,7 @@ export function SummaryCard({
         onClick={onOpenSettings}
       >
         <RiSettings3Line className="size-4" />
-        Atur bill &amp; pembayaran
+        {t('summary.settings')}
       </Button>
 
       <div className="mt-5 space-y-2">
@@ -222,11 +243,17 @@ export function SummaryCard({
                     <p className="truncate text-label-md text-text-strong-950">
                       {person.name}
                     </p>
-                    {isMe && <Badge tone="primary">Kamu</Badge>}
-                    {isPayer && <Badge tone="success">Penerima</Badge>}
+                    {isMe && (
+                      <Badge tone="primary">{t('common.you')}</Badge>
+                    )}
+                    {isPayer && (
+                      <Badge tone="success">{t('common.payer')}</Badge>
+                    )}
                   </div>
                   <p className="text-[11px] text-text-soft-400">
-                    {person.items.length} item
+                    {t('common.itemCount', {
+                      count: person.items.length,
+                    })}
                   </p>
                 </div>
                 <p className="money shrink-0 text-label-md font-semibold text-text-strong-950">
@@ -246,7 +273,7 @@ export function SummaryCard({
                       {item.weight > 1 && (
                         <span className="text-text-soft-400">
                           {' '}
-                          · bobot {item.weight}
+                          · {t('summary.weight', { weight: item.weight })}
                         </span>
                       )}
                     </span>
@@ -257,7 +284,9 @@ export function SummaryCard({
                 ))}
                 {person.shippingShare > 0 && (
                   <div className="flex justify-between gap-3">
-                    <span className="text-text-sub-600">Ongkir</span>
+                    <span className="text-text-sub-600">
+                      {t('summary.shipping')}
+                    </span>
                     <span className="money text-text-strong-950">
                       +{formatRupiah(person.shippingShare)}
                     </span>
@@ -265,7 +294,7 @@ export function SummaryCard({
                 )}
                 {person.billDiscountShare > 0 && (
                   <div className="flex justify-between gap-3 text-success-base">
-                    <span>Diskon bill</span>
+                    <span>{t('summary.billDiscount')}</span>
                     <span className="money">
                       −{formatRupiah(person.billDiscountShare)}
                     </span>
@@ -273,7 +302,9 @@ export function SummaryCard({
                 )}
                 {person.serviceShare > 0 && (
                   <div className="flex justify-between gap-3">
-                    <span className="text-text-sub-600">Service</span>
+                    <span className="text-text-sub-600">
+                      {t('summary.service')}
+                    </span>
                     <span className="money text-text-strong-950">
                       +{formatRupiah(person.serviceShare)}
                     </span>
@@ -281,7 +312,9 @@ export function SummaryCard({
                 )}
                 {person.taxShare > 0 && (
                   <div className="flex justify-between gap-3">
-                    <span className="text-text-sub-600">Pajak / PB1</span>
+                    <span className="text-text-sub-600">
+                      {t('summary.tax')}
+                    </span>
                     <span className="money text-text-strong-950">
                       +{formatRupiah(person.taxShare)}
                     </span>
@@ -289,7 +322,9 @@ export function SummaryCard({
                 )}
                 {person.tipShare > 0 && (
                   <div className="flex justify-between gap-3">
-                    <span className="text-text-sub-600">Tip</span>
+                    <span className="text-text-sub-600">
+                      {t('summary.tip')}
+                    </span>
                     <span className="money text-text-strong-950">
                       +{formatRupiah(person.tipShare)}
                     </span>
@@ -297,7 +332,7 @@ export function SummaryCard({
                 )}
                 {person.items.length === 0 && (
                   <p className="text-text-soft-400">
-                    Tidak ikut item mana pun.
+                    {t('summary.noItems')}
                   </p>
                 )}
               </div>
@@ -307,7 +342,7 @@ export function SummaryCard({
 
         {result.people.length === 0 && (
           <p className="rounded-10 border border-dashed border-stroke-sub-300 p-3 text-paragraph-sm text-text-soft-400">
-            Belum ada peserta.
+            {t('summary.noParticipants')}
           </p>
         )}
       </div>
