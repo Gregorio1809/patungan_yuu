@@ -14,7 +14,9 @@ const hasDetails = computed(
   () =>
     props.person.items.length > 0 ||
     props.person.billDiscountShare > 0 ||
-    props.person.taxShare > 0,
+    props.person.serviceShare > 0 ||
+    props.person.taxShare > 0 ||
+    props.person.tipShare > 0,
 )
 </script>
 
@@ -80,11 +82,25 @@ const hasDetails = computed(
           <span class="money">−{{ formatRupiah(person.billDiscountShare) }}</span>
         </div>
         <div
+          v-if="person.serviceShare > 0"
+          class="flex items-center justify-between gap-3 text-muted"
+        >
+          <span>Service</span>
+          <span class="money">+{{ formatRupiah(person.serviceShare) }}</span>
+        </div>
+        <div
           v-if="person.taxShare > 0"
           class="flex items-center justify-between gap-3 text-muted"
         >
-          <span>Pajak</span>
+          <span>Pajak / PB1</span>
           <span class="money">+{{ formatRupiah(person.taxShare) }}</span>
+        </div>
+        <div
+          v-if="person.tipShare > 0"
+          class="flex items-center justify-between gap-3 text-muted"
+        >
+          <span>Tip</span>
+          <span class="money">+{{ formatRupiah(person.tipShare) }}</span>
         </div>
         <div
           v-if="person.items.length === 0"

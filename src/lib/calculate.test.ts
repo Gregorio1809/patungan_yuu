@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { allocate, calculate } from './calculate'
+import { allocate, allocateEqualCapped, calculate } from './calculate'
 import type { CalcInput, CalcItem } from './calculate'
+import { roundUpTo } from './money'
 
 const ani = { id: 'ani', name: 'Ani' }
 const budi = { id: 'budi', name: 'Budi' }
@@ -22,7 +23,11 @@ function makeInput(overrides: Partial<CalcInput>): CalcInput {
     items: [],
     billDiscountType: 'percent',
     billDiscountValue: 0,
+    discountAllocation: 'proportional',
+    servicePercent: 0,
     taxPercent: 0,
+    taxBase: 'after_discount',
+    tipAmount: 0,
     ...overrides,
   }
 }
@@ -46,6 +51,35 @@ describe('allocate', () => {
 
   it('mengembalikan nol saat bobot kosong', () => {
     expect(allocate(50_000, [0, 0])).toEqual([0, 0])
+  })
+})
+
+describe('allocateEqualCapped', () => {
+  it('membagi rata tanpa melewati subtotal', () => {
+    expect(allocateEqualCapped(50_000, [10_000, 90_000])).toEqual([
+      10_000, 40_000,
+    ])
+  })
+
+  it('membagi rata biasa', () => {
+    expect(allocateEqualCapped(30_000, [30_000, 60_000])).toEqual([
+      15_000, 15_000,
+    ])
+  })
+
+  it('menjaga jumlah tetap sama dengan total', () => {
+    const shares = allocateEqualCapped(77_777, [20_000, 30_000, 80_000])
+    expect(shares.reduce((sum, value) => sum + value, 0)).toBe(77_777)
+    expect(shares.every((value, index) => value <= [20_000, 30_000, 80_000][index])).toBe(true)
+  })
+})
+
+describe('roundUpTo', () => {
+  it('membulatkan transfer ke atas', () => {
+    expect(roundUpTo(157_842, 500)).toBe(158_000)
+    expect(roundUpTo(158_000, 500)).toBe(158_000)
+    expect(roundUpTo(1, 1_000)).toBe(1_000)
+    expect(roundUpTo(0, 1_000)).toBe(0)
   })
 })
 
@@ -248,6 +282,146 @@ describe('calculate', () => {
     expect(Number.isNaN(result.grandTotal)).toBe(false)
   })
 
+  it('menghitung service charge', () => {
+    const result = calculate(
+      makeInput({
+        participants: [ani],
+        items: [
+          makeItem({
+            id: 'i1',
+            name: 'Makan malam',
+            price: 100_000,
+            claims: [{ participantId: 'ani', quantity: 1 }],
+          }),
+        ],
+        servicePercent: 5,
+      }),
+    )
+
+    expect(result.serviceAmount).toBe(5_000)
+    expect(result.grandTotal).toBe(105_000)
+    expect(result.people[0].serviceShare).toBe(5_000)
+  })
+
+  it('menerapkan pajak sebelum atau sesudah diskon', () => {
+    const base = {
+      participants: [ani],
+      items: [
+        makeItem({
+          id: 'i1',
+          name: 'Makan malam',
+          price: 100_000,
+          claims: [{ participantId: 'ani', quantity: 1 }],
+        }),
+      ],
+      billDiscountType: 'amount' as const,
+      billDiscountValue: 10_000,
+      taxPercent: 10,
+    }
+
+    const afterDiscount = calculate(
+      makeInput({ ...base, taxBase: 'after_discount' }),
+    )
+    expect(afterDiscount.taxAmount).toBe(9_000)
+    expect(afterDiscount.grandTotal).toBe(99_000)
+
+    const beforeDiscount = calculate(
+      makeInput({ ...base, taxBase: 'before_discount' }),
+    )
+    expect(beforeDiscount.taxAmount).toBe(10_000)
+    expect(beforeDiscount.grandTotal).toBe(100_000)
+  })
+
+  it('menghitung service, pajak setelah diskon, dan tip berurutan', () => {
+    const result = calculate(
+      makeInput({
+        participants: [ani, budi],
+        items: [
+          makeItem({
+            id: 'i1',
+            name: 'Paket A',
+            price: 100_000,
+            claims: [{ participantId: 'ani', quantity: 1 }],
+          }),
+          makeItem({
+            id: 'i2',
+            name: 'Paket B',
+            price: 100_000,
+            claims: [{ participantId: 'budi', quantity: 1 }],
+          }),
+        ],
+        billDiscountType: 'amount',
+        billDiscountValue: 20_000,
+        servicePercent: 5,
+        taxPercent: 10,
+        taxBase: 'after_discount',
+        tipAmount: 10_000,
+      }),
+    )
+
+    expect(result.billDiscount).toBe(20_000)
+    expect(result.serviceAmount).toBe(9_000)
+    expect(result.taxAmount).toBe(18_900)
+    expect(result.tipAmount).toBe(10_000)
+    expect(result.grandTotal).toBe(217_900)
+    expect(
+      result.people.reduce((sum, person) => sum + person.total, 0),
+    ).toBe(result.grandTotal)
+  })
+
+  it('membagi diskon bill rata dan membatasi per subtotal', () => {
+    const normal = calculate(
+      makeInput({
+        participants: [ani, budi],
+        items: [
+          makeItem({ id: 'i1', name: 'A', price: 30_000, claims: [{ participantId: 'ani', quantity: 1 }] }),
+          makeItem({ id: 'i2', name: 'B', price: 60_000, claims: [{ participantId: 'budi', quantity: 1 }] }),
+        ],
+        billDiscountType: 'amount',
+        billDiscountValue: 30_000,
+        discountAllocation: 'equal',
+      }),
+    )
+
+    expect(totalOf(normal, 'ani')).toBe(15_000)
+    expect(totalOf(normal, 'budi')).toBe(45_000)
+    expect(normal.grandTotal).toBe(60_000)
+
+    const capped = calculate(
+      makeInput({
+        participants: [ani, budi],
+        items: [
+          makeItem({ id: 'i1', name: 'A', price: 10_000, claims: [{ participantId: 'ani', quantity: 1 }] }),
+          makeItem({ id: 'i2', name: 'B', price: 90_000, claims: [{ participantId: 'budi', quantity: 1 }] }),
+        ],
+        billDiscountType: 'amount',
+        billDiscountValue: 50_000,
+        discountAllocation: 'equal',
+      }),
+    )
+
+    expect(totalOf(capped, 'ani')).toBe(0)
+    expect(totalOf(capped, 'budi')).toBe(50_000)
+    expect(capped.grandTotal).toBe(50_000)
+  })
+
+  it('membagi tip proporsional sesuai subtotal', () => {
+    const result = calculate(
+      makeInput({
+        participants: [ani, budi],
+        items: [
+          makeItem({ id: 'i1', name: 'A', price: 30_000, claims: [{ participantId: 'ani', quantity: 1 }] }),
+          makeItem({ id: 'i2', name: 'B', price: 60_000, claims: [{ participantId: 'budi', quantity: 1 }] }),
+        ],
+        tipAmount: 9_000,
+      }),
+    )
+
+    expect(result.people[0].tipShare).toBe(3_000)
+    expect(result.people[1].tipShare).toBe(6_000)
+    expect(result.grandTotal).toBe(99_000)
+  })
+
   it('menjaga jumlah total orang sama dengan grand total pada kasus campuran', () => {
     const result = calculate(
       makeInput({
@@ -280,13 +454,20 @@ describe('calculate', () => {
         billDiscountType: 'percent',
         billDiscountValue: 12.5,
         taxPercent: 11,
+        servicePercent: 5,
+        taxBase: 'before_discount',
+        tipAmount: 20_000,
       }),
     )
 
     const sumPeople = result.people.reduce((sum, person) => sum + person.total, 0)
     expect(sumPeople).toBe(result.grandTotal)
     expect(result.grandTotal).toBe(
-      result.claimedNet - result.billDiscount + result.taxAmount,
+      result.claimedNet -
+        result.billDiscount +
+        result.serviceAmount +
+        result.taxAmount +
+        result.tipAmount,
     )
     expect(result.unclaimedItems).toHaveLength(1)
   })

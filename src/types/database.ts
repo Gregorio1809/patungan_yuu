@@ -1,4 +1,7 @@
 export type DiscountType = 'percent' | 'amount'
+export type DiscountAllocation = 'proportional' | 'equal'
+export type TaxBase = 'before_discount' | 'after_discount'
+export type RoundingStep = 0 | 500 | 1000
 
 export type Json =
   | string
@@ -14,7 +17,13 @@ export interface Session {
   title: string
   bill_discount_type: DiscountType
   bill_discount_value: number
+  discount_allocation: DiscountAllocation
+  service_percent: number
   tax_percent: number
+  tax_base: TaxBase
+  tip_amount: number
+  rounding: RoundingStep
+  receipt_total: number
   created_at: string
 }
 
@@ -22,6 +31,9 @@ export interface Participant {
   id: string
   session_id: string
   name: string
+  is_payer: boolean
+  paid_at: string | null
+  paid_amount: number | null
   created_at: string
 }
 
@@ -56,14 +68,17 @@ export interface SessionSettingsPatch {
   title: string
   billDiscountType: DiscountType
   billDiscountValue: number
+  discountAllocation: DiscountAllocation
+  servicePercent: number
   taxPercent: number
+  taxBase: TaxBase
+  tipAmount: number
+  rounding: RoundingStep
+  receiptTotal: number
 }
 
 export interface NewSessionInput {
   title: string
-  billDiscountType: DiscountType
-  billDiscountValue: number
-  taxPercent: number
 }
 
 export interface NewItemInput {
@@ -84,7 +99,13 @@ export interface Database {
           title: string
           bill_discount_type: string
           bill_discount_value: number
+          discount_allocation: string
+          service_percent: number
           tax_percent: number
+          tax_base: string
+          tip_amount: number
+          rounding: number
+          receipt_total: number
           created_at: string
         }
         Insert: {
@@ -93,7 +114,13 @@ export interface Database {
           title: string
           bill_discount_type?: string
           bill_discount_value?: number
+          discount_allocation?: string
+          service_percent?: number
           tax_percent?: number
+          tax_base?: string
+          tip_amount?: number
+          rounding?: number
+          receipt_total?: number
           created_at?: string
         }
         Update: {
@@ -102,7 +129,13 @@ export interface Database {
           title?: string
           bill_discount_type?: string
           bill_discount_value?: number
+          discount_allocation?: string
+          service_percent?: number
           tax_percent?: number
+          tax_base?: string
+          tip_amount?: number
+          rounding?: number
+          receipt_total?: number
           created_at?: string
         }
         Relationships: []
@@ -112,18 +145,27 @@ export interface Database {
           id: string
           session_id: string
           name: string
+          is_payer: boolean
+          paid_at: string | null
+          paid_amount: number | null
           created_at: string
         }
         Insert: {
           id?: string
           session_id: string
           name: string
+          is_payer?: boolean
+          paid_at?: string | null
+          paid_amount?: number | null
           created_at?: string
         }
         Update: {
           id?: string
           session_id?: string
           name?: string
+          is_payer?: boolean
+          paid_at?: string | null
+          paid_amount?: number | null
           created_at?: string
         }
         Relationships: [

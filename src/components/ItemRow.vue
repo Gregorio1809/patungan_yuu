@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   claim: [item: ItemWithAssignments]
+  duplicate: [item: ItemWithAssignments]
   edit: [item: ItemWithAssignments]
   remove: [item: ItemWithAssignments]
 }>()
@@ -111,12 +112,12 @@ const discountBadge = computed(() => {
       </div>
 
       <div
-        class="flex items-center justify-between gap-2 border-t border-line/70 pt-3 sm:flex-col sm:items-end sm:border-0 sm:pt-0"
+        class="flex flex-col gap-2 border-t border-line/70 pt-3 sm:flex-col sm:items-end sm:border-0 sm:pt-0"
       >
         <span class="money text-base font-bold">
           {{ formatRupiah(pricing.net) }}
         </span>
-        <div class="flex items-center gap-1">
+        <div class="flex flex-wrap items-center justify-end gap-1">
           <button
             type="button"
             class="btn btn-secondary"
@@ -124,6 +125,14 @@ const discountBadge = computed(() => {
           >
             <AppIcon name="users" :size="16" />
             Klaim
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-icon"
+            aria-label="Duplikat item"
+            @click="emit('duplicate', item)"
+          >
+            <AppIcon name="copy" :size="17" />
           </button>
           <button
             type="button"

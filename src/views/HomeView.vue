@@ -2,8 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import type { NewSessionInput } from '../types/database'
+import { isLocalMode } from '../lib/dataMode'
 import { getRecentSessions, type RecentSession } from '../lib/identity'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { sessionRepository } from '../lib/repository'
+import { isSupabaseConfigured } from '../lib/supabase'
 import { useSessionStore } from '../stores/session'
 import { useToastStore } from '../stores/toast'
 import AppHeader from '../components/AppHeader.vue'
@@ -17,12 +19,13 @@ const toast = useToastStore()
 
 const creating = ref(false)
 const recents = ref<RecentSession[]>(getRecentSessions())
+const requiresSupabaseSetup = !isLocalMode && !isSupabaseConfigured
 
 const steps = [
   {
     number: '01',
     title: 'Buat sesi',
-    description: 'Beri nama acara, atur diskon dan pajak.',
+    description: 'Cukup beri nama acara.',
   },
   {
     number: '02',
@@ -31,26 +34,24 @@ const steps = [
   },
   {
     number: '03',
-    title: 'Klaim item',
-    description: 'Total tiap orang dihitung otomatis.',
+    title: 'Atur & klaim',
+    description: 'Atur biaya, lalu klaim item.',
   },
 ]
 
 onMounted(async () => {
-  if (!isSupabaseConfigured || !supabase || recents.value.length === 0) return
+  if (recents.value.length === 0) return
 
-  const slugs = recents.value.map(entry => entry.slug)
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('slug, title')
-    .in('slug', slugs)
+  try {
+    const slugs = recents.value.map(entry => entry.slug)
+    const titles = await sessionRepository.fetchRecentTitles(slugs)
 
-  if (error || !data) return
-
-  const titles = new Map(data.map(row => [row.slug, row.title]))
-  recents.value = recents.value
-    .filter(entry => titles.has(entry.slug))
-    .map(entry => ({ ...entry, title: titles.get(entry.slug) ?? entry.title }))
+    recents.value = recents.value
+      .filter(entry => titles[entry.slug])
+      .map(entry => ({ ...entry, title: titles[entry.slug] }))
+  } catch {
+    // Tetap tampilkan judul yang tersimpan di localStorage.
+  }
 })
 
 async function handleCreate(input: NewSessionInput) {
@@ -72,7 +73,25 @@ async function handleCreate(input: NewSessionInput) {
 
     <main class="mx-auto w-full max-w-6xl px-4 pt-6 pb-16 sm:px-6 sm:pt-10">
       <div
-        v-if="!isSupabaseConfigured"
+        v-if="isLocalMode"
+        class="mb-6 flex items-start gap-3 rounded-2xl border border-positive/25 bg-positive-soft p-4 text-sm"
+      >
+        <span
+          class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-surface text-positive"
+        >
+          <AppIcon name="check" :size="16" />
+        </span>
+        <div>
+          <p class="font-semibold text-positive">Mode lokal aktif</p>
+          <p class="mt-0.5 text-ink-soft">
+            Data disimpan di browser ini, jadi kamu bisa mencoba semua fitur
+            tanpa Supabase. Supabase dipakai saat aplikasi berjalan di production.
+          </p>
+        </div>
+      </div>
+
+      <div
+        v-else-if="requiresSupabaseSetup"
         class="mb-6 rounded-2xl border border-highlight bg-highlight-soft p-4 text-sm text-ink-soft"
       >
         <p class="flex items-center gap-2 font-semibold">
@@ -124,7 +143,8 @@ async function handleCreate(input: NewSessionInput) {
             <h2 class="mb-3 text-lg font-semibold">Mulai patungan baru</h2>
             <CreateSessionForm
               :pending="creating"
-              :disabled="!isSupabaseConfigured"
+              :disabled="requiresSupabaseSetup"
+              :local-mode="isLocalMode"
               @create="handleCreate"
             />
           </div>

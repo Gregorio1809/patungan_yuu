@@ -7,6 +7,7 @@ import type {
   Participant,
   SessionSettingsPatch,
 } from '../types/database'
+import { isLocalMode } from '../lib/dataMode'
 import { clearIdentity, getIdentity, setIdentity } from '../lib/identity'
 import { buildSummaryText, copyText, shareText } from '../lib/share'
 import { useSessionStore } from '../stores/session'
@@ -19,6 +20,9 @@ import ItemBoard from '../components/ItemBoard.vue'
 import ItemFormModal from '../components/ItemFormModal.vue'
 import JoinDialog from '../components/JoinDialog.vue'
 import ParticipantBar from '../components/ParticipantBar.vue'
+import ParticipantDialog from '../components/ParticipantDialog.vue'
+import QrDialog from '../components/QrDialog.vue'
+import SettlementPanel from '../components/SettlementPanel.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import StickyTotalBar from '../components/StickyTotalBar.vue'
 import SummaryPanel from '../components/SummaryPanel.vue'
@@ -41,6 +45,12 @@ const claimPendingIds = ref<string[]>([])
 
 const settingsOpen = ref(false)
 const settingsSaving = ref(false)
+
+const qrOpen = ref(false)
+const editingParticipant = ref<Participant | null>(null)
+const participantSaving = ref(false)
+const settlementPending = ref(false)
+const claimingUnclaimed = ref(false)
 
 const confirmDelete = ref<{
   type: 'item' | 'participant'
@@ -68,6 +78,23 @@ const myResult = computed(
 )
 
 const myTotal = computed(() => myResult.value?.total ?? 0)
+
+const hasBillSettings = computed(
+  () =>
+    Boolean(store.session) &&
+    ((store.session?.bill_discount_value ?? 0) > 0 ||
+      (store.session?.service_percent ?? 0) > 0 ||
+      (store.session?.tax_percent ?? 0) > 0 ||
+      (store.session?.tip_amount ?? 0) > 0),
+)
+
+const payer = computed(
+  () => store.participants.find(participant => participant.is_payer) ?? null,
+)
+
+const payerName = computed(() => payer.value?.name ?? null)
+const rounding = computed(() => store.session?.rounding ?? 0)
+const receiptTotal = computed(() => store.session?.receipt_total ?? 0)
 
 const participantTotals = computed<Record<string, number>>(() =>
   Object.fromEntries(
@@ -111,6 +138,10 @@ async function init(slugValue: string) {
   claimItemId.value = null
   settingsOpen.value = false
   confirmDelete.value = null
+  qrOpen.value = false
+  editingParticipant.value = null
+  settlementPending.value = false
+  claimingUnclaimed.value = false
 
   await store.loadBySlug(slugValue)
   if (!store.session) return
@@ -240,6 +271,35 @@ function requestRemoveParticipant(participant: Participant) {
   }
 }
 
+function openParticipantEdit(participant: Participant) {
+  if (!requireIdentity()) return
+  editingParticipant.value = participant
+}
+
+async function saveParticipantName(name: string) {
+  const target = editingParticipant.value
+  if (!target) return
+
+  participantSaving.value = true
+  try {
+    await store.renameParticipant(target.id, name)
+    editingParticipant.value = null
+    toast.success('Nama peserta diperbarui.')
+  } catch {
+    toast.error('Gagal mengganti nama peserta. Coba lagi.')
+  } finally {
+    participantSaving.value = false
+  }
+}
+
+function removeParticipantFromDialog() {
+  const target = editingParticipant.value
+  if (!target) return
+
+  editingParticipant.value = null
+  requestRemoveParticipant(target)
+}
+
 function openAddItem() {
   if (!requireIdentity()) return
   editingItem.value = null
@@ -279,6 +339,17 @@ async function confirmRemove() {
     toast.error('Gagal menghapus. Coba lagi.')
   } finally {
     deletePending.value = false
+  }
+}
+
+async function duplicateItem(item: ItemWithAssignments) {
+  if (!requireIdentity()) return
+
+  try {
+    await store.duplicateItem(item)
+    toast.success('Item diduplikat.')
+  } catch {
+    toast.error('Gagal menduplikat item. Coba lagi.')
   }
 }
 
@@ -342,6 +413,56 @@ async function saveSettings(patch: SessionSettingsPatch) {
   }
 }
 
+async function handleSetPayer(participantId: string | null) {
+  if (!requireIdentity()) return
+
+  settlementPending.value = true
+  try {
+    await store.setPayer(participantId)
+    toast.success(
+      participantId
+        ? 'Penerima transfer disimpan.'
+        : 'Penerima transfer dikosongkan.',
+    )
+  } catch {
+    toast.error('Gagal menyimpan penerima transfer. Coba lagi.')
+  } finally {
+    settlementPending.value = false
+  }
+}
+
+async function handleTogglePaid(
+  participantId: string,
+  paid: boolean,
+  amount: number,
+) {
+  if (!requireIdentity()) return
+
+  settlementPending.value = true
+  try {
+    await store.setParticipantPaid(participantId, paid, amount)
+    toast.success(paid ? 'Ditandai lunas.' : 'Status lunas dibatalkan.')
+  } catch {
+    toast.error('Gagal memperbarui status pembayaran. Coba lagi.')
+  } finally {
+    settlementPending.value = false
+  }
+}
+
+async function handleClaimUnclaimed(mode: 'all' | 'payer') {
+  if (!requireIdentity()) return
+
+  claimingUnclaimed.value = true
+  try {
+    const count = await store.claimUnclaimed(mode)
+    toast.success(`${count} item dibebankan.`)
+  } catch {
+    toast.error('Gagal membebankan item. Coba lagi.')
+  } finally {
+    claimingUnclaimed.value = false
+  }
+}
+
 async function handleCopyLink() {
   const copied = await copyText(shareUrl.value)
   if (copied) {
@@ -354,7 +475,12 @@ async function handleCopyLink() {
 async function handleShare() {
   if (!store.session) return
 
-  const text = buildSummaryText(store.session, store.result, shareUrl.value)
+  const text = buildSummaryText(
+    store.session,
+    store.result,
+    store.participants,
+    shareUrl.value,
+  )
   const outcome = await shareText(text)
   if (outcome === 'copied') {
     toast.success('Ringkasan disalin ke clipboard.')
@@ -386,7 +512,7 @@ function retry() {
 
         <div class="min-w-0 flex-1">
           <p class="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">
-            Patungan
+            Patungan{{ isLocalMode ? ' · lokal' : '' }}
           </p>
           <h1
             class="truncate font-display text-lg leading-tight font-bold"
@@ -399,13 +525,21 @@ function retry() {
         <div
           v-if="store.session"
           class="hidden items-center gap-1.5 text-xs text-muted sm:flex"
-          :title="store.connected ? 'Tersinkron realtime' : 'Menyambung ulang...'"
+          :title="
+            isLocalMode
+              ? 'Data tersimpan di browser ini'
+              : store.connected
+                ? 'Tersinkron realtime'
+                : 'Menyambung ulang...'
+          "
         >
           <span
             class="size-2 rounded-full"
-            :class="store.connected ? 'bg-positive' : 'bg-highlight'"
+            :class="
+              isLocalMode || store.connected ? 'bg-positive' : 'bg-highlight'
+            "
           />
-          {{ store.connected ? 'Tersinkron' : 'Menyambung' }}
+          {{ isLocalMode ? 'Mode lokal' : store.connected ? 'Tersinkron' : 'Menyambung' }}
         </div>
 
         <button
@@ -423,7 +557,8 @@ function retry() {
           v-if="store.session"
           type="button"
           class="btn btn-ghost btn-icon"
-          aria-label="Pengaturan sesi"
+          aria-label="Atur bill dan pembayaran"
+          title="Atur bill dan pembayaran"
           @click="openSettings"
         >
           <AppIcon name="settings" :size="19" />
@@ -500,10 +635,32 @@ function retry() {
 
       <template v-else>
         <div
-          class="mb-5 rounded-2xl border border-line bg-surface/70 px-4 py-3 text-sm text-ink-soft"
+          class="mb-5 flex flex-col gap-3 rounded-2xl px-4 py-3 text-sm text-ink-soft sm:flex-row sm:items-center sm:justify-between"
+          :class="
+            isLocalMode
+              ? 'border border-positive/25 bg-positive-soft'
+              : 'border border-line bg-surface/70'
+          "
         >
-          Semua orang yang punya link bisa mengubah data. Salin link lewat tombol
-          di kanan atas, lalu bagikan ke peserta.
+          <p>
+            <template v-if="isLocalMode">
+              <span class="font-semibold text-positive">Mode lokal.</span>
+              Data tersimpan di browser ini, jadi link hanya bisa dibuka di
+              browser yang sama.
+            </template>
+            <template v-else>
+              Semua orang yang punya link bisa mengubah data. Salin link lewat
+              tombol di kanan atas, lalu bagikan ke peserta.
+            </template>
+          </p>
+          <button
+            type="button"
+            class="btn btn-secondary shrink-0 text-xs"
+            @click="qrOpen = true"
+          >
+            <AppIcon name="qr" :size="15" />
+            Tampilkan QR
+          </button>
         </div>
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -514,7 +671,7 @@ function retry() {
               :my-participant-id="myParticipantId"
               :adding="participantAdding"
               @add="handleAddParticipant"
-              @remove="requestRemoveParticipant"
+              @edit="openParticipantEdit"
             />
 
             <ItemBoard
@@ -524,16 +681,33 @@ function retry() {
               :my-participant-id="myParticipantId"
               @add="openAddItem"
               @claim="openClaim"
+              @duplicate="duplicateItem"
               @edit="openEditItem"
               @remove="requestRemoveItem"
             />
           </div>
 
-          <div class="lg:sticky lg:top-24">
+          <div class="space-y-4 lg:sticky lg:top-24">
             <SummaryPanel
               :result="store.result"
               :my-participant-id="myParticipantId"
+              :has-bill-settings="hasBillSettings"
+              :receipt-total="receiptTotal"
+              :payer-name="payerName"
+              :has-participants="store.participants.length > 0"
+              :claiming-unclaimed="claimingUnclaimed"
               @share="handleShare"
+              @settings="openSettings"
+              @claim-unclaimed="handleClaimUnclaimed"
+            />
+
+            <SettlementPanel
+              :participants="store.participants"
+              :result="store.result"
+              :rounding="rounding"
+              :pending="settlementPending"
+              @set-payer="handleSetPayer"
+              @toggle-paid="handleTogglePaid"
             />
           </div>
         </div>
@@ -578,6 +752,22 @@ function retry() {
       :claimed-net="store.result.claimedNet"
       :pending="settingsSaving"
       @save="saveSettings"
+    />
+
+    <ParticipantDialog
+      :open="Boolean(editingParticipant)"
+      :participant="editingParticipant"
+      :pending="participantSaving"
+      @update:open="value => { if (!value) editingParticipant = null }"
+      @save="saveParticipantName"
+      @remove="removeParticipantFromDialog"
+    />
+
+    <QrDialog
+      :open="qrOpen"
+      :url="shareUrl"
+      :local-mode="isLocalMode"
+      @update:open="qrOpen = $event"
     />
 
     <ConfirmDialog

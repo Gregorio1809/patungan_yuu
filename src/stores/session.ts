@@ -1,12 +1,13 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { RealtimeChannel } from '@supabase/supabase-js'
-import { isSupabaseConfigured, requireSupabase, supabase } from '../lib/supabase'
 import { calculate } from '../lib/calculate'
 import type { CalcInput } from '../lib/calculate'
+import { dataMode } from '../lib/dataMode'
+import { errorMessage } from '../lib/errors'
 import { rememberSession } from '../lib/identity'
+import { sessionRepository } from '../lib/repository'
+import { isSupabaseConfigured } from '../lib/supabase'
 import type {
-  DiscountType,
   ItemAssignment,
   ItemWithAssignments,
   NewItemInput,
@@ -17,92 +18,8 @@ import type {
   SessionSnapshot,
 } from '../types/database'
 
-interface RawSessionRow {
-  id: string
-  slug: string
-  title: string
-  bill_discount_type: string
-  bill_discount_value: number | string
-  tax_percent: number | string
-  created_at: string
-}
-
-interface RawParticipantRow {
-  id: string
-  session_id: string
-  name: string
-  created_at: string
-}
-
-interface RawAssignmentRow {
-  item_id: string
-  participant_id: string
-  session_id: string
-  quantity: number
-}
-
-interface RawItemRow {
-  id: string
-  session_id: string
-  name: string
-  price: number | string
-  quantity: number
-  discount_type: string
-  discount_value: number | string
-  created_at: string
-  item_assignments?: RawAssignmentRow[] | null
-}
-
-interface RawSnapshotRow extends RawSessionRow {
-  participants?: RawParticipantRow[] | null
-  items?: RawItemRow[] | null
-}
-
-const REALTIME_TABLES = ['sessions', 'participants', 'items', 'item_assignments'] as const
-
-function toDiscountType(value: string): DiscountType {
-  return value === 'amount' ? 'amount' : 'percent'
-}
-
-function normalizeSession(row: RawSessionRow): Session {
-  return {
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    bill_discount_type: toDiscountType(row.bill_discount_type),
-    bill_discount_value: Number(row.bill_discount_value) || 0,
-    tax_percent: Number(row.tax_percent) || 0,
-    created_at: row.created_at,
-  }
-}
-
-function normalizeParticipant(row: RawParticipantRow): Participant {
-  return { ...row, name: row.name.trim() }
-}
-
-function normalizeItem(row: RawItemRow): ItemWithAssignments {
-  return {
-    id: row.id,
-    session_id: row.session_id,
-    name: row.name,
-    price: Number(row.price) || 0,
-    quantity: Number(row.quantity) || 1,
-    discount_type: toDiscountType(row.discount_type),
-    discount_value: Number(row.discount_value) || 0,
-    created_at: row.created_at,
-    item_assignments: (row.item_assignments ?? []).map(assignment => ({
-      ...assignment,
-      quantity: Number(assignment.quantity) || 1,
-    })),
-  }
-}
-
-function errorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'message' in error) {
-    const message = (error as { message?: unknown }).message
-    if (typeof message === 'string' && message.trim()) return message
-  }
-  return 'Terjadi kesalahan.'
+function sortByCreatedAt<T extends { created_at: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export const useSessionStore = defineStore('session', () => {
@@ -114,7 +31,7 @@ export const useSessionStore = defineStore('session', () => {
   const notFound = ref(false)
   const connected = ref(false)
 
-  let channel: RealtimeChannel | null = null
+  let unsubscribe: (() => void) | null = null
   let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
   const calcInput = computed<CalcInput>(() => ({
@@ -136,39 +53,25 @@ export const useSessionStore = defineStore('session', () => {
     })),
     billDiscountType: session.value?.bill_discount_type ?? 'percent',
     billDiscountValue: session.value?.bill_discount_value ?? 0,
+    discountAllocation: session.value?.discount_allocation ?? 'proportional',
+    servicePercent: session.value?.service_percent ?? 0,
     taxPercent: session.value?.tax_percent ?? 0,
+    taxBase: session.value?.tax_base ?? 'after_discount',
+    tipAmount: session.value?.tip_amount ?? 0,
   }))
 
   const result = computed(() => calculate(calcInput.value))
 
-  function applySnapshot(row: RawSnapshotRow) {
-    session.value = normalizeSession(row)
-    participants.value = (row.participants ?? [])
-      .map(normalizeParticipant)
-      .sort((a, b) => a.created_at.localeCompare(b.created_at))
-    items.value = (row.items ?? [])
-      .map(normalizeItem)
-      .sort((a, b) => a.created_at.localeCompare(b.created_at))
-  }
+  function applySnapshot(snapshot: SessionSnapshot) {
+    const {
+      participants: snapshotParticipants,
+      items: snapshotItems,
+      ...sessionData
+    } = snapshot
 
-  async function fetchBy(column: 'slug' | 'id', value: string): Promise<SessionSnapshot | null> {
-    const client = requireSupabase()
-    const { data, error: queryError } = await client
-      .from('sessions')
-      .select('*, participants(*), items(*, item_assignments(*))')
-      .eq(column, value)
-      .maybeSingle()
-
-    if (queryError) throw new Error(errorMessage(queryError))
-    if (!data) return null
-
-    const raw = data as unknown as RawSnapshotRow
-    applySnapshot(raw)
-    return {
-      ...normalizeSession(raw),
-      participants: participants.value,
-      items: items.value,
-    }
+    session.value = sessionData
+    participants.value = sortByCreatedAt(snapshotParticipants)
+    items.value = sortByCreatedAt(snapshotItems)
   }
 
   async function loadBySlug(slug: string): Promise<boolean> {
@@ -180,19 +83,21 @@ export const useSessionStore = defineStore('session', () => {
     participants.value = []
     items.value = []
 
-    if (!isSupabaseConfigured) {
-      error.value = 'Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.'
+    if (dataMode === 'supabase' && !isSupabaseConfigured) {
+      error.value =
+        'Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.'
       loading.value = false
       return false
     }
 
     try {
-      const snapshot = await fetchBy('slug', slug)
+      const snapshot = await sessionRepository.loadBySlug(slug)
       if (!snapshot) {
         notFound.value = true
         return false
       }
 
+      applySnapshot(snapshot)
       rememberSession({ slug: snapshot.slug, title: snapshot.title })
       startRealtime()
       return true
@@ -208,14 +113,17 @@ export const useSessionStore = defineStore('session', () => {
     if (!session.value) return
 
     try {
-      const snapshot = await fetchBy('id', session.value.id)
+      const snapshot = await sessionRepository.loadById(session.value.id)
       if (!snapshot) {
         stopRealtime()
         session.value = null
         participants.value = []
         items.value = []
         notFound.value = true
+        return
       }
+
+      applySnapshot(snapshot)
     } catch {
       connected.value = false
     }
@@ -230,24 +138,16 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   function startRealtime() {
-    if (!supabase || !session.value) return
+    if (!session.value) return
 
     stopRealtime()
-
-    const currentChannel = supabase.channel(`patungan-room-${session.value.id}`)
-    for (const table of REALTIME_TABLES) {
-      currentChannel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        () => scheduleRefresh(),
-      )
-    }
-
-    currentChannel.subscribe(status => {
-      connected.value = status === 'SUBSCRIBED'
-    })
-
-    channel = currentChannel
+    unsubscribe = sessionRepository.subscribe(
+      session.value,
+      () => scheduleRefresh(),
+      status => {
+        connected.value = status
+      },
+    )
   }
 
   function stopRealtime() {
@@ -256,59 +156,43 @@ export const useSessionStore = defineStore('session', () => {
       refreshTimer = null
     }
 
-    if (channel && supabase) {
-      void supabase.removeChannel(channel)
-    }
-
-    channel = null
+    unsubscribe?.()
+    unsubscribe = null
     connected.value = false
   }
 
   async function createSession(input: NewSessionInput): Promise<Session> {
-    const client = requireSupabase()
-    const { data, error: insertError } = await client
-      .from('sessions')
-      .insert({
-        title: input.title.trim(),
-        bill_discount_type: input.billDiscountType,
-        bill_discount_value: input.billDiscountValue,
-        tax_percent: input.taxPercent,
-      })
-      .select('*')
-      .single()
-
-    if (insertError) throw new Error(errorMessage(insertError))
-
-    const created = normalizeSession(data as unknown as RawSessionRow)
+    const created = await sessionRepository.createSession(input)
     rememberSession({ slug: created.slug, title: created.title })
     return created
   }
 
   async function addParticipant(name: string): Promise<Participant> {
-    const client = requireSupabase()
     if (!session.value) throw new Error('Sesi belum dimuat.')
 
-    const { data, error: insertError } = await client
-      .from('participants')
-      .insert({ session_id: session.value.id, name: name.trim() })
-      .select('*')
-      .single()
-
-    if (insertError) throw new Error(errorMessage(insertError))
-
-    const participant = normalizeParticipant(data as unknown as RawParticipantRow)
-    participants.value = [...participants.value, participant]
+    const participant = await sessionRepository.addParticipant(
+      session.value.id,
+      name,
+    )
+    participants.value = sortByCreatedAt([...participants.value, participant])
     return participant
   }
 
-  async function removeParticipant(participantId: string): Promise<void> {
-    const client = requireSupabase()
-    const { error: deleteError } = await client
-      .from('participants')
-      .delete()
-      .eq('id', participantId)
+  async function renameParticipant(
+    participantId: string,
+    name: string,
+  ): Promise<void> {
+    const updated = await sessionRepository.renameParticipant(
+      participantId,
+      name,
+    )
+    participants.value = participants.value.map(participant =>
+      participant.id === participantId ? updated : participant,
+    )
+  }
 
-    if (deleteError) throw new Error(errorMessage(deleteError))
+  async function removeParticipant(participantId: string): Promise<void> {
+    await sessionRepository.removeParticipant(participantId)
 
     participants.value = participants.value.filter(
       participant => participant.id !== participantId,
@@ -321,70 +205,71 @@ export const useSessionStore = defineStore('session', () => {
     }))
   }
 
-  async function updateSession(patch: SessionSettingsPatch): Promise<void> {
-    const client = requireSupabase()
+  async function setPayer(participantId: string | null): Promise<void> {
     if (!session.value) throw new Error('Sesi belum dimuat.')
 
-    const { data, error: updateError } = await client
-      .from('sessions')
-      .update({
-        title: patch.title.trim(),
-        bill_discount_type: patch.billDiscountType,
-        bill_discount_value: patch.billDiscountValue,
-        tax_percent: patch.taxPercent,
-      })
-      .eq('id', session.value.id)
-      .select('*')
-      .single()
+    try {
+      await sessionRepository.setPayer(session.value.id, participantId)
+      participants.value = participants.value.map(participant => ({
+        ...participant,
+        is_payer: participant.id === participantId,
+      }))
+    } catch (error) {
+      await refresh()
+      throw error
+    }
+  }
 
-    if (updateError) throw new Error(errorMessage(updateError))
+  async function setParticipantPaid(
+    participantId: string,
+    paid: boolean,
+    amount: number,
+  ): Promise<void> {
+    const updated = await sessionRepository.setParticipantPaid(
+      participantId,
+      paid,
+      amount,
+    )
+    participants.value = participants.value.map(participant =>
+      participant.id === participantId ? updated : participant,
+    )
+  }
 
-    session.value = normalizeSession(data as unknown as RawSessionRow)
-    rememberSession({ slug: session.value.slug, title: session.value.title })
+  async function updateSession(patch: SessionSettingsPatch): Promise<void> {
+    if (!session.value) throw new Error('Sesi belum dimuat.')
+
+    const updated = await sessionRepository.updateSession(
+      session.value.id,
+      patch,
+    )
+    session.value = updated
+    rememberSession({ slug: updated.slug, title: updated.title })
   }
 
   async function addItem(input: NewItemInput): Promise<ItemWithAssignments> {
-    const client = requireSupabase()
     if (!session.value) throw new Error('Sesi belum dimuat.')
 
-    const { data, error: insertError } = await client
-      .from('items')
-      .insert({
-        session_id: session.value.id,
-        name: input.name.trim(),
-        price: input.price,
-        quantity: input.quantity,
-        discount_type: input.discountType,
-        discount_value: input.discountValue,
-      })
-      .select('*')
-      .single()
-
-    if (insertError) throw new Error(errorMessage(insertError))
-
-    const item = normalizeItem(data as unknown as RawItemRow)
+    const item = await sessionRepository.addItem(session.value.id, input)
     items.value = [...items.value, item]
     return item
   }
 
-  async function updateItem(itemId: string, input: NewItemInput): Promise<void> {
-    const client = requireSupabase()
-    const { data, error: updateError } = await client
-      .from('items')
-      .update({
-        name: input.name.trim(),
-        price: input.price,
-        quantity: input.quantity,
-        discount_type: input.discountType,
-        discount_value: input.discountValue,
-      })
-      .eq('id', itemId)
-      .select('*')
-      .single()
+  async function duplicateItem(item: ItemWithAssignments): Promise<void> {
+    await addItem({
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      discountType: item.discount_type,
+      discountValue: item.discount_value,
+    })
+  }
 
-    if (updateError) throw new Error(errorMessage(updateError))
+  async function updateItem(
+    itemId: string,
+    input: NewItemInput,
+  ): Promise<void> {
+    const updated = await sessionRepository.updateItem(itemId, input)
 
-    const updated = normalizeItem(data as unknown as RawItemRow)
     items.value = items.value.map(item =>
       item.id === itemId
         ? { ...updated, item_assignments: item.item_assignments }
@@ -393,11 +278,7 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function deleteItem(itemId: string): Promise<void> {
-    const client = requireSupabase()
-    const { error: deleteError } = await client.from('items').delete().eq('id', itemId)
-
-    if (deleteError) throw new Error(errorMessage(deleteError))
-
+    await sessionRepository.deleteItem(itemId)
     items.value = items.value.filter(item => item.id !== itemId)
   }
 
@@ -406,7 +287,6 @@ export const useSessionStore = defineStore('session', () => {
     participantId: string,
     quantity: number | null,
   ): Promise<void> {
-    const client = requireSupabase()
     if (!session.value) throw new Error('Sesi belum dimuat.')
 
     const currentItem = items.value.find(item => item.id === itemId)
@@ -420,6 +300,7 @@ export const useSessionStore = defineStore('session', () => {
     function applyAssignment(next: ItemAssignment | null) {
       items.value = items.value.map(item => {
         if (item.id !== itemId) return item
+
         const others = item.item_assignments.filter(
           assignment => assignment.participant_id !== participantId,
         )
@@ -430,56 +311,60 @@ export const useSessionStore = defineStore('session', () => {
       })
     }
 
-    if (quantity === null || quantity <= 0) {
-      applyAssignment(null)
+    const optimistic =
+      quantity === null || quantity <= 0
+        ? null
+        : {
+            item_id: itemId,
+            participant_id: participantId,
+            session_id: session.value.id,
+            quantity: Math.max(1, Math.round(quantity)),
+          }
 
-      const { error: deleteError } = await client
-        .from('item_assignments')
-        .delete()
-        .eq('item_id', itemId)
-        .eq('participant_id', participantId)
+    applyAssignment(optimistic)
 
-      if (deleteError) {
-        applyAssignment(previous)
-        throw new Error(errorMessage(deleteError))
-      }
-      return
-    }
-
-    const weight = Math.max(1, Math.round(quantity))
-    applyAssignment({
-      item_id: itemId,
-      participant_id: participantId,
-      session_id: session.value.id,
-      quantity: weight,
-    })
-
-    const { data, error: upsertError } = await client
-      .from('item_assignments')
-      .upsert(
-        {
-          item_id: itemId,
-          participant_id: participantId,
-          session_id: session.value.id,
-          quantity: weight,
-        },
-        { onConflict: 'item_id,participant_id' },
+    try {
+      const assignment = await sessionRepository.setClaim(
+        session.value.id,
+        itemId,
+        participantId,
+        quantity,
       )
-      .select('*')
-      .single()
-
-    if (upsertError) {
+      applyAssignment(assignment)
+    } catch (error) {
       applyAssignment(previous)
-      throw new Error(errorMessage(upsertError))
+      throw error
+    }
+  }
+
+  async function claimUnclaimed(mode: 'all' | 'payer'): Promise<number> {
+    if (!session.value) throw new Error('Sesi belum dimuat.')
+
+    const itemIds = result.value.unclaimedItems.map(item => item.itemId)
+    if (itemIds.length === 0) return 0
+
+    const participantIds =
+      mode === 'all'
+        ? participants.value.map(participant => participant.id)
+        : participants.value
+            .filter(participant => participant.is_payer)
+            .map(participant => participant.id)
+
+    if (participantIds.length === 0) {
+      throw new Error(
+        mode === 'payer'
+          ? 'Pilih penerima transfer dulu.'
+          : 'Belum ada peserta untuk membagi item.',
+      )
     }
 
-    const assignment = data as unknown as RawAssignmentRow
-    applyAssignment({
-      item_id: assignment.item_id,
-      participant_id: assignment.participant_id,
-      session_id: assignment.session_id,
-      quantity: Number(assignment.quantity),
-    })
+    await sessionRepository.setClaimsForItems(
+      session.value.id,
+      itemIds,
+      participantIds,
+    )
+    await refresh()
+    return itemIds.length
   }
 
   return {
@@ -493,15 +378,19 @@ export const useSessionStore = defineStore('session', () => {
     result,
     loadBySlug,
     refresh,
-    startRealtime,
     stopRealtime,
     createSession,
     addParticipant,
+    renameParticipant,
     removeParticipant,
+    setPayer,
+    setParticipantPaid,
     updateSession,
     addItem,
+    duplicateItem,
     updateItem,
     deleteItem,
     setClaim,
+    claimUnclaimed,
   }
 })

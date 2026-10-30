@@ -14,7 +14,7 @@ defineProps<{
 
 const emit = defineEmits<{
   add: [name: string]
-  remove: [participant: Participant]
+  edit: [participant: Participant]
 }>()
 
 const name = ref('')
@@ -75,11 +75,11 @@ function submit() {
         </span>
         <button
           type="button"
-          class="flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-danger-soft hover:text-danger"
-          :aria-label="`Hapus ${participant.name}`"
-          @click="emit('remove', participant)"
+          class="relative flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition after:absolute after:-inset-1.5 after:content-[''] hover:bg-paper-deep hover:text-ink"
+          :aria-label="`Edit ${participant.name}`"
+          @click="emit('edit', participant)"
         >
-          <AppIcon name="close" :size="14" />
+          <AppIcon name="pencil" :size="14" />
         </button>
       </li>
     </ul>

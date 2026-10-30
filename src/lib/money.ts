@@ -29,3 +29,10 @@ export function toSafeInteger(value: number | string, fallback = 0): number {
   if (!Number.isFinite(parsed)) return fallback
   return Math.max(0, Math.round(parsed))
 }
+
+export function roundUpTo(value: number, increment: number): number {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0
+  const step = Number.isFinite(increment) ? Math.max(0, Math.round(increment)) : 0
+  if (step <= 1) return Math.round(safeValue)
+  return Math.ceil(safeValue / step) * step
+}

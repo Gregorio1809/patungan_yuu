@@ -18,6 +18,7 @@ defineProps<{
 const emit = defineEmits<{
   add: []
   claim: [item: ItemWithAssignments]
+  duplicate: [item: ItemWithAssignments]
   edit: [item: ItemWithAssignments]
   remove: [item: ItemWithAssignments]
 }>()
@@ -60,6 +61,7 @@ const emit = defineEmits<{
         :participants="participants"
         :my-participant-id="myParticipantId"
         @claim="emit('claim', $event)"
+        @duplicate="emit('duplicate', $event)"
         @edit="emit('edit', $event)"
         @remove="emit('remove', $event)"
       />

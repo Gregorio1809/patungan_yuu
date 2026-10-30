@@ -1,4 +1,8 @@
-import type { DiscountType } from '../types/database'
+import type {
+  DiscountAllocation,
+  DiscountType,
+  TaxBase,
+} from '../types/database'
 
 export interface CalcClaim {
   participantId: string
@@ -25,7 +29,11 @@ export interface CalcInput {
   items: CalcItem[]
   billDiscountType: DiscountType
   billDiscountValue: number
+  discountAllocation: DiscountAllocation
+  servicePercent: number
   taxPercent: number
+  taxBase: TaxBase
+  tipAmount: number
 }
 
 export interface PersonItemShare {
@@ -40,7 +48,9 @@ export interface PersonResult {
   name: string
   subtotal: number
   billDiscountShare: number
+  serviceShare: number
   taxShare: number
+  tipShare: number
   total: number
   items: PersonItemShare[]
 }
@@ -69,7 +79,9 @@ export interface CalcResult {
   totalNet: number
   claimedNet: number
   billDiscount: number
+  serviceAmount: number
   taxAmount: number
+  tipAmount: number
   grandTotal: number
   unclaimedItems: UnclaimedItem[]
 }
@@ -104,6 +116,46 @@ export function allocate(total: number, weights: number[]): number[] {
   return shares
 }
 
+/**
+ * Bagi rata dengan batas maksimum per penerima. Dipakai untuk diskon bill
+ * yang dibagi rata agar tidak ada peserta yang diskonnya melebihi subtotal.
+ */
+export function allocateEqualCapped(total: number, caps: number[]): number[] {
+  const safeTotal = Math.max(0, Math.round(total))
+  const safeCaps = caps.map(cap =>
+    Number.isFinite(cap) ? Math.max(0, Math.round(cap)) : 0,
+  )
+  const shares = safeCaps.map(() => 0)
+  let remaining = safeTotal
+
+  while (remaining > 0) {
+    const eligible = safeCaps
+      .map((cap, index) => ({ cap, index }))
+      .filter(entry => shares[entry.index] < entry.cap)
+
+    if (eligible.length === 0) break
+
+    const per = Math.max(1, Math.floor(remaining / eligible.length))
+    let distributed = 0
+
+    for (const entry of eligible) {
+      if (remaining <= 0) break
+      const take = Math.min(
+        per,
+        entry.cap - shares[entry.index],
+        remaining,
+      )
+      shares[entry.index] += take
+      remaining -= take
+      distributed += take
+    }
+
+    if (distributed === 0) break
+  }
+
+  return shares
+}
+
 function applyDiscount(base: number, type: DiscountType, value: number): number {
   const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0
   const raw =
@@ -111,6 +163,11 @@ function applyDiscount(base: number, type: DiscountType, value: number): number 
       ? Math.round((base * safeValue) / 100)
       : Math.round(safeValue)
   return Math.min(base, Math.max(0, raw))
+}
+
+function applyPercent(base: number, percent: number): number {
+  const safePercent = Number.isFinite(percent) ? Math.max(0, percent) : 0
+  return Math.max(0, Math.round((base * safePercent) / 100))
 }
 
 export interface ItemPricing {
@@ -130,11 +187,6 @@ export function calculateItemPricing(
   return { gross, discount, net: gross - discount }
 }
 
-function applyTax(base: number, percent: number): number {
-  const safePercent = Number.isFinite(percent) ? Math.max(0, percent) : 0
-  return Math.max(0, Math.round((base * safePercent) / 100))
-}
-
 export function calculate(input: CalcInput): CalcResult {
   const personMap = new Map<string, PersonResult>()
 
@@ -144,7 +196,9 @@ export function calculate(input: CalcInput): CalcResult {
       name: participant.name,
       subtotal: 0,
       billDiscountShare: 0,
+      serviceShare: 0,
       taxShare: 0,
+      tipShare: 0,
       total: 0,
       items: [],
     })
@@ -216,21 +270,59 @@ export function calculate(input: CalcInput): CalcResult {
     .filter((person): person is PersonResult => Boolean(person))
 
   const subtotals = people.map(person => person.subtotal)
+  const hasBill = claimedNet > 0
+
   const billDiscount = applyDiscount(
     claimedNet,
     input.billDiscountType,
     input.billDiscountValue,
   )
-  const billShares = allocate(billDiscount, subtotals)
-  const taxable = subtotals.map((subtotal, index) => subtotal - billShares[index])
-  const taxableTotal = taxable.reduce((sum, value) => sum + value, 0)
-  const taxAmount = applyTax(taxableTotal, input.taxPercent)
-  const taxShares = allocate(taxAmount, taxable)
+
+  const billShares =
+    input.discountAllocation === 'equal'
+      ? allocateEqualCapped(billDiscount, subtotals)
+      : allocate(billDiscount, subtotals)
+
+  const afterDiscount = subtotals.map(
+    (subtotal, index) => subtotal - billShares[index],
+  )
+  const afterDiscountTotal = afterDiscount.reduce(
+    (sum, value) => sum + value,
+    0,
+  )
+
+  const serviceAmount = hasBill
+    ? applyPercent(afterDiscountTotal, input.servicePercent)
+    : 0
+  const serviceShares = allocate(serviceAmount, afterDiscount)
+
+  const taxBaseTotal =
+    (input.taxBase === 'before_discount' ? claimedNet : afterDiscountTotal) +
+    serviceAmount
+  const taxAmount = hasBill ? applyPercent(taxBaseTotal, input.taxPercent) : 0
+
+  const taxWeights = afterDiscount.map((amount, index) => {
+    const baseWeight =
+      input.taxBase === 'before_discount' ? subtotals[index] : amount
+    return Math.max(0, baseWeight) + serviceShares[index]
+  })
+  const taxShares = allocate(taxAmount, taxWeights)
+
+  const tipAmount = hasBill
+    ? Math.max(0, Math.round(Number(input.tipAmount) || 0))
+    : 0
+  const tipShares = allocate(tipAmount, subtotals)
 
   people.forEach((person, index) => {
     person.billDiscountShare = billShares[index]
+    person.serviceShare = serviceShares[index]
     person.taxShare = taxShares[index]
-    person.total = person.subtotal - person.billDiscountShare + person.taxShare
+    person.tipShare = tipShares[index]
+    person.total =
+      afterDiscount[index] +
+      person.serviceShare +
+      person.taxShare +
+      person.tipShare
   })
 
   const grandTotal = people.reduce((sum, person) => sum + person.total, 0)
@@ -243,7 +335,9 @@ export function calculate(input: CalcInput): CalcResult {
     totalNet: totalGross - totalItemDiscount,
     claimedNet,
     billDiscount,
+    serviceAmount,
     taxAmount,
+    tipAmount,
     grandTotal,
     unclaimedItems,
   }
