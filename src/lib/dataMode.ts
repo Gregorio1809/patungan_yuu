@@ -14,7 +14,9 @@ export const dataMode: DataMode =
     ? 'local'
     : requested === 'supabase'
       ? 'supabase'
-      : import.meta.env.DEV && !isSupabaseConfigured
+      : (import.meta.env.DEV ||
+          import.meta.env.MODE === 'development') &&
+          !isSupabaseConfigured
         ? 'local'
         : 'supabase'
 

@@ -1,0 +1,742 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  RiErrorWarningLine,
+  RiFileList3Line,
+} from '@remixicon/react'
+import { isLocalMode } from '../lib/dataMode'
+import { clearIdentity, getIdentity, setIdentity } from '../lib/identity'
+import { buildSummaryText, copyText } from '../lib/share'
+import { useSessionResult } from '../hooks/useSessionResult'
+import { useSessionStore } from '../store/session'
+import { useToastStore } from '../store/toast'
+import type {
+  ItemWithAssignments,
+  NewItemInput,
+  Participant,
+  SessionSettingsPatch,
+} from '../types/database'
+import { AppHeader } from '../components/AppHeader'
+import { BillSettingsDialog } from '../components/BillSettingsDialog'
+import { ClaimDialog } from '../components/ClaimDialog'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ItemCard } from '../components/ItemCard'
+import { ItemDialog } from '../components/ItemDialog'
+import { JoinDialog } from '../components/JoinDialog'
+import { ParticipantCard } from '../components/ParticipantCard'
+import { ParticipantDialog } from '../components/ParticipantDialog'
+import { QrDialog } from '../components/QrDialog'
+import { SessionHeader } from '../components/SessionHeader'
+import { SettlementCard } from '../components/SettlementCard'
+import { StickyTotalBar } from '../components/StickyTotalBar'
+import { SummaryCard } from '../components/SummaryCard'
+import { Alert } from '../ui/Alert'
+import { Button } from '../ui/Button'
+import { Card } from '../ui/Card'
+
+type ItemDialogState = {
+  open: boolean
+  item: ItemWithAssignments | null
+}
+
+type ParticipantDialogState = {
+  open: boolean
+  participant: Participant | null
+}
+
+type ConfirmState = {
+  title: string
+  description: string
+  confirmLabel: string
+  action: () => void | Promise<void>
+} | null
+
+export function SessionView() {
+  const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
+  const store = useSessionStore()
+  const result = useSessionResult()
+  const toast = useToastStore()
+
+  const [myParticipantId, setMyParticipantId] = useState<string | null>(null)
+  const [joinOpen, setJoinOpen] = useState(false)
+  const [joining, setJoining] = useState(false)
+
+  const [participantAdding, setParticipantAdding] = useState(false)
+  const [participantDialog, setParticipantDialog] =
+    useState<ParticipantDialogState>({
+      open: false,
+      participant: null,
+    })
+  const [participantSaving, setParticipantSaving] = useState(false)
+
+  const [itemDialog, setItemDialog] = useState<ItemDialogState>({
+    open: false,
+    item: null,
+  })
+  const [itemSaving, setItemSaving] = useState(false)
+
+  const [claimItemId, setClaimItemId] = useState<string | null>(null)
+  const [claimPendingIds, setClaimPendingIds] = useState<string[]>([])
+
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+
+  const [qrOpen, setQrOpen] = useState(false)
+  const [claimingUnclaimed, setClaimingUnclaimed] = useState(false)
+  const [settlementPending, setSettlementPending] = useState(false)
+
+  const [confirm, setConfirm] = useState<ConfirmState>(null)
+  const [deletePending, setDeletePending] = useState(false)
+
+  const session = store.session
+  const participants = store.participants
+  const items = store.items
+
+  const myParticipant =
+    participants.find(participant => participant.id === myParticipantId) ??
+    null
+  const myPerson =
+    result.people.find(person => person.participantId === myParticipantId) ??
+    null
+  const myTotal = myPerson?.total ?? 0
+  const claimItem = items.find(item => item.id === claimItemId) ?? null
+  const shareUrl = `${window.location.origin}/s/${session?.slug ?? slug ?? ''}`
+  const totals = Object.fromEntries(
+    result.people.map(person => [person.participantId, person.total]),
+  )
+
+  function syncIdentity(slugValue: string) {
+    const stored = getIdentity(slugValue)
+    const list = useSessionStore.getState().participants
+    const valid = stored
+      ? list.some(participant => participant.id === stored)
+      : false
+
+    if (stored && !valid) clearIdentity(slugValue)
+
+    if (!valid) {
+      setMyParticipantId(null)
+      setJoinOpen(true)
+    } else {
+      setMyParticipantId(stored)
+    }
+  }
+
+  useEffect(() => {
+    if (!slug) return
+
+    let active = true
+    setMyParticipantId(getIdentity(slug))
+    setJoinOpen(false)
+    setClaimItemId(null)
+    setItemDialog({ open: false, item: null })
+    setSettingsOpen(false)
+    setParticipantDialog({ open: false, participant: null })
+    setQrOpen(false)
+    setConfirm(null)
+
+    const init = async () => {
+      const loaded = await store.loadBySlug(slug)
+      if (!active || !loaded) return
+      syncIdentity(slug)
+    }
+
+    void init()
+
+    return () => {
+      active = false
+      store.stopRealtime()
+    }
+  }, [slug])
+
+  useEffect(() => {
+    if (!myParticipantId || store.loading || !session) return
+
+    if (
+      !participants.some(
+        participant => participant.id === myParticipantId,
+      )
+    ) {
+      if (slug) clearIdentity(slug)
+      setMyParticipantId(null)
+      setJoinOpen(true)
+      useToastStore
+        .getState()
+        .info('Kamu sudah keluar dari sesi ini. Gabung lagi untuk mengedit.')
+    }
+  }, [participants, myParticipantId, store.loading, session, slug])
+
+  useEffect(() => {
+    const onFocus = () => {
+      void store.refresh()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void store.refresh()
+      }
+    }
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      store.stopRealtime()
+    }
+  }, [])
+
+  function requireIdentity(): boolean {
+    if (
+      myParticipantId &&
+      participants.some(
+        participant => participant.id === myParticipantId,
+      )
+    ) {
+      return true
+    }
+
+    setJoinOpen(true)
+    toast.info('Gabung dulu untuk mengubah patungan ini.')
+    return false
+  }
+
+  async function handleJoin(name: string) {
+    if (!slug) return
+
+    setJoining(true)
+    try {
+      const existing = participants.find(
+        participant =>
+          participant.name.trim().toLowerCase() ===
+          name.trim().toLowerCase(),
+      )
+      const participant =
+        existing ?? (await store.addParticipant(name))
+
+      setIdentity(slug, participant.id)
+      setMyParticipantId(participant.id)
+      setJoinOpen(false)
+      toast.success(
+        existing
+          ? `Kamu bergabung sebagai ${participant.name}.`
+          : `Halo, ${participant.name}. Kamu sudah bergabung.`,
+      )
+    } catch {
+      toast.error('Gagal bergabung. Coba lagi.')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  async function handleAddParticipant(name: string) {
+    if (!requireIdentity()) return
+
+    setParticipantAdding(true)
+    try {
+      await store.addParticipant(name)
+      toast.success(`${name} ditambahkan.`)
+    } catch {
+      toast.error('Gagal menambah peserta. Coba lagi.')
+    } finally {
+      setParticipantAdding(false)
+    }
+  }
+
+  function openParticipantDialog(participant: Participant) {
+    if (!requireIdentity()) return
+    setParticipantDialog({ open: true, participant })
+  }
+
+  async function saveParticipantName(name: string) {
+    const target = participantDialog.participant
+    if (!target) return
+
+    setParticipantSaving(true)
+    try {
+      await store.renameParticipant(target.id, name)
+      setParticipantDialog({ open: false, participant: null })
+      toast.success('Nama peserta diperbarui.')
+    } catch {
+      toast.error('Gagal mengganti nama peserta. Coba lagi.')
+    } finally {
+      setParticipantSaving(false)
+    }
+  }
+
+  function requestRemoveParticipant() {
+    const target = participantDialog.participant
+    if (!target) return
+
+    const removingSelf = target.id === myParticipantId
+    setParticipantDialog({ open: false, participant: null })
+    setConfirm({
+      title: 'Hapus peserta?',
+      description: `“${target.name}” akan dihapus beserta semua klaim itemnya.`,
+      confirmLabel: 'Hapus peserta',
+      action: async () => {
+        setDeletePending(true)
+        try {
+          await store.removeParticipant(target.id)
+          setConfirm(null)
+          if (!removingSelf) {
+            toast.success(`${target.name} dihapus dari sesi.`)
+          }
+        } catch {
+          toast.error('Gagal menghapus. Coba lagi.')
+        } finally {
+          setDeletePending(false)
+        }
+      },
+    })
+  }
+
+  function openAddItem() {
+    if (!requireIdentity()) return
+    setItemDialog({ open: true, item: null })
+  }
+
+  function openEditItem(item: ItemWithAssignments) {
+    if (!requireIdentity()) return
+    setItemDialog({ open: true, item })
+  }
+
+  async function saveItem(input: NewItemInput) {
+    if (!requireIdentity()) return
+
+    const editing = itemDialog.item
+    setItemSaving(true)
+    try {
+      if (editing) {
+        await store.updateItem(editing.id, input)
+      } else {
+        await store.addItem(input)
+      }
+      setItemDialog({ open: false, item: null })
+      toast.success(editing ? 'Item diperbarui.' : 'Item ditambahkan.')
+    } catch {
+      toast.error('Gagal menyimpan item. Coba lagi.')
+    } finally {
+      setItemSaving(false)
+    }
+  }
+
+  async function duplicateItem(item: ItemWithAssignments) {
+    if (!requireIdentity()) return
+
+    try {
+      await store.duplicateItem(item)
+      toast.success('Item diduplikat.')
+    } catch {
+      toast.error('Gagal menduplikat item. Coba lagi.')
+    }
+  }
+
+  function requestDeleteItem(item: ItemWithAssignments) {
+    if (!requireIdentity()) return
+
+    setConfirm({
+      title: 'Hapus item?',
+      description: `“${item.name}” akan dihapus dari daftar item.`,
+      confirmLabel: 'Hapus item',
+      action: async () => {
+        setDeletePending(true)
+        try {
+          await store.deleteItem(item.id)
+          setConfirm(null)
+          toast.success('Item dihapus.')
+        } catch {
+          toast.error('Gagal menghapus. Coba lagi.')
+        } finally {
+          setDeletePending(false)
+        }
+      },
+    })
+  }
+
+  function openClaim(item: ItemWithAssignments) {
+    if (!requireIdentity()) return
+    setClaimItemId(item.id)
+  }
+
+  async function handleSetClaim(
+    participantId: string,
+    quantity: number | null,
+  ) {
+    if (!claimItemId) return
+
+    const itemId = claimItemId
+    setClaimPendingIds(previous => [...previous, participantId])
+    try {
+      await store.setClaim(itemId, participantId, quantity)
+    } catch {
+      toast.error('Gagal menyimpan klaim. Coba lagi.')
+    } finally {
+      setClaimPendingIds(previous =>
+        previous.filter(id => id !== participantId),
+      )
+    }
+  }
+
+  function openSettings() {
+    if (!requireIdentity()) return
+    setSettingsOpen(true)
+  }
+
+  async function saveSettings(patch: SessionSettingsPatch) {
+    setSettingsSaving(true)
+    try {
+      await store.updateSession(patch)
+      setSettingsOpen(false)
+      toast.success('Pengaturan sesi disimpan.')
+    } catch {
+      toast.error('Gagal menyimpan pengaturan. Coba lagi.')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  async function handleSetPayer(participantId: string | null) {
+    if (!requireIdentity()) return
+
+    setSettlementPending(true)
+    try {
+      await store.setPayer(participantId)
+      toast.success(
+        participantId
+          ? 'Penerima transfer disimpan.'
+          : 'Penerima transfer dikosongkan.',
+      )
+    } catch {
+      toast.error('Gagal menyimpan penerima transfer. Coba lagi.')
+    } finally {
+      setSettlementPending(false)
+    }
+  }
+
+  async function handleTogglePaid(
+    participantId: string,
+    paid: boolean,
+    amount: number,
+  ) {
+    if (!requireIdentity()) return
+
+    setSettlementPending(true)
+    try {
+      await store.setParticipantPaid(participantId, paid, amount)
+      toast.success(paid ? 'Ditandai lunas.' : 'Status lunas dibatalkan.')
+    } catch {
+      toast.error('Gagal memperbarui status pembayaran. Coba lagi.')
+    } finally {
+      setSettlementPending(false)
+    }
+  }
+
+  async function handleClaimUnclaimed(mode: 'all' | 'payer') {
+    if (!requireIdentity()) return
+
+    setClaimingUnclaimed(true)
+    try {
+      const count = await store.claimUnclaimed(mode)
+      toast.success(`${count} item dibebankan.`)
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message.startsWith('Pilih')
+          ? error.message
+          : 'Gagal membebankan item. Coba lagi.',
+      )
+    } finally {
+      setClaimingUnclaimed(false)
+    }
+  }
+
+  async function copyLink() {
+    const copied = await copyText(shareUrl)
+    if (copied) {
+      toast.success('Link disalin. Bagikan ke peserta lain.')
+    } else {
+      toast.error('Gagal menyalin link. Salin dari address bar saja.')
+    }
+  }
+
+  async function shareSummary() {
+    if (!session) return
+
+    const text = buildSummaryText(
+      session,
+      result,
+      participants,
+      shareUrl,
+    )
+    const copied = await copyText(text)
+    if (copied) {
+      toast.success('Ringkasan disalin ke clipboard.')
+    } else {
+      toast.error('Gagal membagikan ringkasan. Coba lagi.')
+    }
+  }
+
+  function openSummary() {
+    document
+      .getElementById('ringkasan')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  async function retry() {
+    if (!slug) return
+    const loaded = await store.loadBySlug(slug)
+    if (loaded) syncIdentity(slug)
+  }
+
+  if (store.loading) {
+    return (
+      <div className="min-h-dvh">
+        <AppHeader localMode={isLocalMode} />
+        <main className="mx-auto w-full max-w-[1200px] px-4 py-5 sm:px-6">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
+            <div className="space-y-5">
+              <Card className="p-4">
+                <div className="h-4 w-24 animate-pulse rounded-full bg-bg-soft-200" />
+                <div className="mt-4 flex gap-2">
+                  <div className="h-8 w-28 animate-pulse rounded-full bg-bg-soft-200" />
+                  <div className="h-8 w-24 animate-pulse rounded-full bg-bg-soft-200" />
+                </div>
+              </Card>
+              <Card className="p-4">
+                <div className="h-4 w-16 animate-pulse rounded-full bg-bg-soft-200" />
+                <div className="mt-4 space-y-3">
+                  <div className="h-10 animate-pulse rounded-10 bg-bg-soft-200" />
+                  <div className="h-10 animate-pulse rounded-10 bg-bg-soft-200" />
+                </div>
+              </Card>
+            </div>
+            <Card className="p-4">
+              <div className="h-4 w-24 animate-pulse rounded-full bg-bg-soft-200" />
+              <div className="mt-4 space-y-3">
+                <div className="h-10 animate-pulse rounded-10 bg-bg-soft-200" />
+                <div className="h-10 animate-pulse rounded-10 bg-bg-soft-200" />
+                <div className="h-10 animate-pulse rounded-10 bg-bg-soft-200" />
+              </div>
+            </Card>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (store.error) {
+    return (
+      <div className="min-h-dvh">
+        <AppHeader localMode={isLocalMode} />
+        <main className="mx-auto w-full max-w-lg px-4 py-12">
+          <Card className="p-6 text-center">
+            <span className="mx-auto flex size-12 items-center justify-center rounded-12 bg-error-lighter text-error-base">
+              <RiErrorWarningLine className="size-6" />
+            </span>
+            <h1 className="mt-3 text-title-h5 text-text-strong-950">
+              Gagal memuat sesi
+            </h1>
+            <p className="mt-1 text-paragraph-sm text-text-sub-600">
+              {store.error}
+            </p>
+            <div className="mt-5 flex justify-center gap-2">
+              <Button onClick={() => void retry()}>Coba lagi</Button>
+              <Button
+                variant="neutral"
+                mode="stroke"
+                onClick={() => navigate('/')}
+              >
+                Ke beranda
+              </Button>
+            </div>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  if (store.notFound || !session) {
+    return (
+      <div className="min-h-dvh">
+        <AppHeader localMode={isLocalMode} />
+        <main className="mx-auto w-full max-w-lg px-4 py-12">
+          <Card className="p-6 text-center">
+            <span className="mx-auto flex size-12 items-center justify-center rounded-12 bg-bg-weak-50 text-text-soft-400">
+              <RiFileList3Line className="size-6" />
+            </span>
+            <h1 className="mt-3 text-title-h5 text-text-strong-950">
+              Sesi tidak ditemukan
+            </h1>
+            <p className="mt-1 text-paragraph-sm text-text-sub-600">
+              Link mungkin salah atau sesinya sudah dihapus. Periksa lagi link
+              dari pembuat sesi.
+            </p>
+            <Button className="mt-5" onClick={() => navigate('/')}>
+              Buat sesi baru
+            </Button>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-dvh pb-28 lg:pb-10">
+      <SessionHeader
+        title={session.title}
+        isLocalMode={isLocalMode}
+        connected={store.connected}
+        onCopyLink={() => void copyLink()}
+        onOpenQr={() => setQrOpen(true)}
+        onOpenSettings={openSettings}
+      />
+
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-5 sm:px-6">
+        <Alert tone="info" className="mb-5">
+          {isLocalMode ? (
+            <>
+              <span className="font-medium text-text-strong-950">
+                Mode lokal.
+              </span>{' '}
+              Data tersimpan di browser ini, jadi link hanya bisa dibuka di
+              browser yang sama.
+            </>
+          ) : (
+            <>
+              Semua orang yang punya link bisa mengubah data. Salin link lewat
+              tombol di kanan atas, lalu bagikan ke peserta.
+            </>
+          )}
+        </Alert>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">
+          <div className="space-y-5">
+            <ParticipantCard
+              participants={participants}
+              totals={totals}
+              me={myParticipantId ?? ''}
+              adding={participantAdding}
+              onAdd={handleAddParticipant}
+              onEdit={openParticipantDialog}
+            />
+
+            <ItemCard
+              items={items}
+              participants={participants}
+              onAdd={openAddItem}
+              onClaim={openClaim}
+              onEdit={openEditItem}
+              onDuplicate={duplicateItem}
+              onDelete={requestDeleteItem}
+            />
+          </div>
+
+          <div className="space-y-5 lg:sticky lg:top-24">
+            <SummaryCard
+              result={result}
+              participants={participants}
+              me={myParticipantId ?? ''}
+              receiptTotal={session.receipt_total}
+              claimingUnclaimed={claimingUnclaimed}
+              onOpenSettings={openSettings}
+              onShare={() => void shareSummary()}
+              onClaimUnclaimed={handleClaimUnclaimed}
+            />
+
+            <SettlementCard
+              participants={participants}
+              result={result}
+              rounding={session.rounding}
+              pending={settlementPending}
+              onSetPayer={handleSetPayer}
+              onTogglePaid={handleTogglePaid}
+            />
+          </div>
+        </div>
+      </main>
+
+      <StickyTotalBar
+        total={myTotal}
+        hasIdentity={Boolean(myParticipant)}
+        unclaimedCount={result.unclaimedItems.length}
+        onOpenSummary={openSummary}
+        onJoin={() => setJoinOpen(true)}
+      />
+
+      <JoinDialog
+        open={joinOpen}
+        onOpenChange={setJoinOpen}
+        participants={participants}
+        pending={joining}
+        onSubmit={handleJoin}
+        onViewOnly={() => setJoinOpen(false)}
+      />
+
+      <ClaimDialog
+        open={claimItemId !== null}
+        onOpenChange={open => {
+          if (!open) setClaimItemId(null)
+        }}
+        item={claimItem}
+        participants={participants}
+        me={myParticipantId ?? ''}
+        pendingIds={claimPendingIds}
+        onSetClaim={handleSetClaim}
+      />
+
+      <BillSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        session={session}
+        claimedNet={result.claimedNet}
+        pending={settingsSaving}
+        onSave={saveSettings}
+      />
+
+      <ItemDialog
+        open={itemDialog.open}
+        onOpenChange={open => {
+          if (!open) setItemDialog({ open: false, item: null })
+        }}
+        item={itemDialog.item}
+        pending={itemSaving}
+        onSave={saveItem}
+      />
+
+      <ParticipantDialog
+        open={participantDialog.open}
+        onOpenChange={open => {
+          if (!open) {
+            setParticipantDialog({ open: false, participant: null })
+          }
+        }}
+        participant={participantDialog.participant}
+        canRemove
+        pending={participantSaving}
+        onSave={saveParticipantName}
+        onRemove={requestRemoveParticipant}
+      />
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={open => {
+          if (!open) setConfirm(null)
+        }}
+        title={confirm?.title ?? ''}
+        description={confirm?.description ?? ''}
+        confirmLabel={confirm?.confirmLabel}
+        pending={deletePending}
+        onConfirm={() => {
+          void confirm?.action?.()
+        }}
+      />
+
+      <QrDialog
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+        url={shareUrl}
+      />
+    </div>
+  )
+}

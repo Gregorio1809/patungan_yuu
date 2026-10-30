@@ -9,6 +9,8 @@ create table if not exists public.sessions (
   bill_discount_type text not null default 'percent' check (bill_discount_type in ('percent', 'amount')),
   bill_discount_value numeric(12, 2) not null default 0 check (bill_discount_value >= 0),
   discount_allocation text not null default 'proportional' check (discount_allocation in ('proportional', 'equal')),
+  discount_scope text not null default 'items' check (discount_scope in ('items', 'final')),
+  shipping_amount numeric(12, 2) not null default 0 check (shipping_amount >= 0),
   service_percent numeric(5, 2) not null default 0 check (service_percent >= 0),
   tax_percent numeric(5, 2) not null default 0 check (tax_percent >= 0),
   tax_base text not null default 'after_discount' check (tax_base in ('before_discount', 'after_discount')),
@@ -55,6 +57,8 @@ create table if not exists public.item_assignments (
 -- Upgrade idempotent untuk project yang sudah dibuat sebelum fitur ini.
 alter table public.sessions
   add column if not exists discount_allocation text not null default 'proportional',
+  add column if not exists discount_scope text not null default 'items',
+  add column if not exists shipping_amount numeric(12, 2) not null default 0,
   add column if not exists service_percent numeric(5, 2) not null default 0,
   add column if not exists tax_base text not null default 'after_discount',
   add column if not exists tip_amount numeric(12, 2) not null default 0,

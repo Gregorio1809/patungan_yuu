@@ -1,6 +1,6 @@
 # Patungan Yuu
 
-Aplikasi web untuk bagi-bagi bill tanpa drama. Buat sesi, bagikan link, setiap peserta mengklaim item yang mereka ambil, lalu total tiap orang dihitung otomatis. Dibangun dengan Vue 3 + TypeScript. Data memakai Supabase untuk production, dengan mode lokal berbasis localStorage untuk development. Hosting statis di Netlify.
+Aplikasi web untuk bagi-bagi bill tanpa drama. Buat sesi, bagikan link, setiap peserta mengklaim item yang mereka ambil, lalu total tiap orang dihitung otomatis. Dibangun dengan React 19 + TypeScript dan AlignUI-style design system. Data memakai Supabase untuk production, dengan mode lokal berbasis localStorage untuk development. Hosting statis di Netlify.
 
 ## Fitur
 
@@ -26,9 +26,11 @@ Aplikasi web untuk bagi-bagi bill tanpa drama. Buat sesi, bagikan link, setiap p
 
 ## Stack
 
-- Vue 3 (Composition API, `<script setup>`) + Vite + TypeScript
-- Pinia, Vue Router
+- React 19 + TypeScript + Vite
+- React Router
+- Zustand untuk state sesi dan toast
 - Tailwind CSS v4
+- AlignUI-style design tokens dan primitives (lihat catatan AlignUI di bawah)
 - Supabase (Postgres, RLS, Realtime)
 - Vitest untuk unit test logika perhitungan
 
@@ -39,13 +41,13 @@ Aplikasi web untuk bagi-bagi bill tanpa drama. Buat sesi, bagikan link, setiap p
 Cocok untuk development dan mencoba semua fitur:
 
 ```bash
-npm install
+npm install --include=dev
 npm run dev
 ```
 
 Buka `http://localhost:5173`. Saat development tanpa kredensial Supabase, aplikasi otomatis memakai localStorage dengan key `patungan:local:sessions:v1`. Data tetap ada setelah reload, tetapi link sesi hanya bisa dibuka di browser yang sama.
 
-Form awal hanya meminta nama sesi. Diskon bill, service, pajak, tip, pembulatan, dan total struk diatur di halaman sesi lewat tombol **Atur bill & pembayaran**.
+Form awal hanya meminta nama sesi. Diskon bill, ongkir, service, pajak, tip, pembulatan, dan total struk diatur di halaman sesi lewat tombol **Atur bill & pembayaran**.
 
 ### Mode Supabase (production / lintas perangkat)
 
@@ -76,7 +78,7 @@ Form awal hanya meminta nama sesi. Diskon bill, service, pajak, tip, pembulatan,
 
 - `local` memaksa localStorage, meskipun env Supabase terisi.
 - `supabase` memaksa Supabase.
-- Kosong berarti otomatis: `local` saat development tanpa env, `supabase` saat production.
+- Kosong berarti otomatis: `local` saat dev server tanpa env, `supabase` saat production.
 
 Production tanpa env Supabase akan menampilkan panduan setup dan menonaktifkan pembuatan sesi, supaya data tidak tersimpan lokal di browser pengunjung.
 
@@ -110,7 +112,7 @@ Item tanpa klaim tidak masuk tagihan dan ditampilkan sebagai peringatan di ringk
 | `npm run dev` | Dev server Vite |
 | `npm run build` | Typecheck + build produksi ke `dist/` |
 | `npm run preview` | Preview hasil build |
-| `npm run typecheck` | Cek tipe dengan `vue-tsc` |
+| `npm run typecheck` | Cek tipe dengan `tsc --noEmit` |
 | `npm run test` | Jalankan unit test sekali |
 | `npm run test:watch` | Unit test mode watch |
 
@@ -118,17 +120,28 @@ Item tanpa klaim tidak masuk tagihan dan ditampilkan sebagai peringatan di ringk
 
 ```
 src/
-├─ lib/calculate.ts      # logika pembagian + pembulatan
-├─ lib/dataMode.ts       # pilih mode local atau supabase
-├─ lib/repository/       # adapter data: localStorage dan Supabase
-├─ lib/supabase.ts       # klien Supabase + validasi env
-├─ lib/identity.ts       # identitas peserta per sesi di localStorage
-├─ lib/share.ts          # teks ringkasan, share, clipboard
-├─ stores/session.ts     # state sesi, mutasi, sinkronisasi
-├─ views/                # Home, Session, NotFound
-└─ components/           # UI item, klaim, peserta, ringkasan, modal
-supabase/schema.sql      # skema database + RLS + realtime
+├─ main.tsx               # entry React
+├─ App.tsx                # router dan toast host
+├─ styles.css             # token AlignUI-style + Tailwind v4
+├─ lib/calculate.ts       # logika pembagian + pembulatan
+├─ lib/dataMode.ts        # pilih mode local atau supabase
+├─ lib/repository/        # adapter data: localStorage dan Supabase
+├─ lib/supabase.ts        # klien Supabase + validasi env
+├─ lib/identity.ts        # identitas peserta per sesi di localStorage
+├─ lib/share.ts           # teks ringkasan, share, clipboard
+├─ store/session.ts       # state sesi, mutasi, sinkronisasi
+├─ store/toast.ts         # notifikasi
+├─ views/                 # Home, Session, NotFound
+├─ components/            # item, klaim, peserta, ringkasan, modal
+└─ ui/                    # primitives bergaya AlignUI
+supabase/schema.sql       # skema database + RLS + realtime
 ```
+
+## Desain dan AlignUI
+
+Aplikasi memakai bahasa visual AlignUI: token warna netral, aksen oranye, tipografi Ranade, radius, shadow, dan pola komponen AlignUI. Primitive React-nya ada di `src/ui/` dan dibangun sendiri dengan Tailwind, bukan salinan paket AlignUI PRO atau file Figma berbayar.
+
+Kalau mau memakai base component resmi AlignUI yang gratis/open-source, primitive di `src/ui/` bisa diganti satu per satu tanpa mengubah halaman atau logika bisnis. Komponen PRO dan file Figma AlignUI tetap memerlukan lisensi terpisah.
 
 ## Deploy ke Netlify
 
@@ -138,9 +151,10 @@ supabase/schema.sql      # skema database + RLS + realtime
 4. Tambahkan environment variables di **Site configuration → Environment variables**:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-   
+
    Jangan mengisi `VITE_DATA_MODE=local` untuk production, karena data akan tersimpan di browser masing-masing pengunjung dan link tidak bisa dibagi.
 5. Deploy. Redirect SPA `/* → /index.html` sudah disiapkan agar link `/s/:slug` bisa dibuka langsung.
+6. Setelah mengubah environment variable, jalankan **Deploys → Trigger deploy → Clear cache and deploy site** karena Vite membaca env saat build.
 
 Alternatif via CLI:
 
@@ -167,6 +181,7 @@ Jika butuh isolasi lebih kuat, langkah lanjutan yang bisa diambil:
 ## Troubleshooting
 
 - **`vite` atau `vitest` tidak ditemukan** saat `npm run dev`/`npm run test`: environment mungkin memasang `NODE_ENV=production`. Jalankan `npm install --include=dev`.
+- **Dev server menampilkan "Supabase belum tersambung"**: pastikan tidak ada `VITE_DATA_MODE=supabase`, lalu restart. Mode lokal aktif otomatis saat dev server tanpa env Supabase.
 - **Masih "Mode lokal" padahal env Supabase sudah diisi**: restart dev server, pastikan nama variabel benar, dan tidak ada `VITE_DATA_MODE=local`.
 - **Sesi hilang saat dibuka di browser/perangkat lain**: itu perilaku mode lokal. Isi env Supabase atau paksa `VITE_DATA_MODE=supabase`.
 - **Status di header tetap "Menyambung"**: pastikan keempat tabel sudah masuk publication Realtime. `supabase/schema.sql` sudah melakukannya; cek juga Realtime aktif di dashboard Supabase.
@@ -175,4 +190,4 @@ Jika butuh isolasi lebih kuat, langkah lanjutan yang bisa diambil:
 
 ## Kustomisasi tampilan
 
-Token warna, font, radius, dan style komponen ada di [`src/style.css`](./src/style.css) (blok `@theme` dan `@layer components`).
+Token warna, font, radius, dan style komponen ada di [`src/styles.css`](./src/styles.css) (blok `@theme` dan `@layer components`). Font Ranade dimuat dari Fontshare di [`index.html`](./index.html). Primitive UI ada di `src/ui/`.

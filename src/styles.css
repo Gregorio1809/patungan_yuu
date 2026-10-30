@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Ranade", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Ranade", ui-sans-serif, system-ui, sans-serif;
+
+  --color-static-white: #ffffff;
+  --color-static-black: #000000;
+
+  --color-gray-0: #ffffff;
+  --color-gray-25: #fcfcfc;
+  --color-gray-50: #f7f7f7;
+  --color-gray-100: #f0f0f0;
+  --color-gray-200: #e8e8e8;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0a0a0a;
+
+  --color-orange-50: #fff5ed;
+  --color-orange-100: #ffe8d5;
+  --color-orange-200: #ffd0aa;
+  --color-orange-300: #ffb174;
+  --color-orange-400: #ff8a3d;
+  --color-orange-500: #f17b2c;
+  --color-orange-600: #d96518;
+  --color-orange-700: #b44e10;
+  --color-orange-800: #8f3e0f;
+  --color-orange-900: #743411;
+  --color-orange-950: #3f1806;
+
+  --color-primary-base: #a8450d;
+  --color-primary-darker: #8a3609;
+  --color-primary-dark: #7c2d12;
+  --color-primary-alpha-10: rgb(168 69 13 / 0.1);
+  --color-primary-alpha-16: rgb(168 69 13 / 0.16);
+
+  --color-bg-white-0: #ffffff;
+  --color-bg-weak-25: #fcfcfc;
+  --color-bg-weak-50: #f7f7f7;
+  --color-bg-soft-200: #f0f0f0;
+  --color-bg-sub-300: #e8e8e8;
+  --color-bg-strong-950: #171717;
+  --color-bg-surface-800: #262626;
+
+  --color-text-strong-950: #171717;
+  --color-text-sub-600: #525252;
+  --color-text-soft-400: #6b6b6b;
+  --color-text-disabled-300: #d4d4d4;
+  --color-text-white-0: #ffffff;
+
+  --color-stroke-soft-200: #e8e8e8;
+  --color-stroke-sub-300: #d4d4d4;
+  --color-stroke-strong-950: #171717;
+
+  --color-error-base: #b91c1c;
+  --color-error-lighter: #fef2f2;
+  --color-success-base: #15803d;
+  --color-success-lighter: #f0fdf4;
+  --color-warning-base: #b45309;
+  --color-warning-lighter: #fffbeb;
+  --color-information-base: #2563eb;
+  --color-information-lighter: #eff6ff;
+
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-20: 20px;
+
+  --shadow-regular-xs: 0 1px 2px rgb(23 23 23 / 0.04);
+  --shadow-regular-sm:
+    0 1px 3px rgb(23 23 23 / 0.06), 0 1px 2px rgb(23 23 23 / 0.04);
+  --shadow-regular-md: 0 8px 24px rgb(23 23 23 / 0.06);
+
+  --text-label-sm: 0.8125rem;
+  --text-label-sm--line-height: 1.125rem;
+  --text-label-sm--font-weight: 500;
+  --text-label-md: 0.875rem;
+  --text-label-md--line-height: 1.25rem;
+  --text-label-md--font-weight: 500;
+  --text-paragraph-sm: 0.8125rem;
+  --text-paragraph-sm--line-height: 1.25rem;
+  --text-paragraph-md: 0.875rem;
+  --text-paragraph-md--line-height: 1.375rem;
+  --text-title-h6: 1.125rem;
+  --text-title-h6--line-height: 1.5rem;
+  --text-title-h6--font-weight: 600;
+  --text-title-h5: 1.25rem;
+  --text-title-h5--line-height: 1.75rem;
+  --text-title-h5--font-weight: 600;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg-weak-50 font-sans text-text-strong-950 antialiased;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary-base);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .surface {
+    @apply rounded-2xl border border-stroke-soft-200 bg-bg-white-0 shadow-regular-xs;
+  }
+
+  .field {
+    @apply h-10 w-full rounded-10 border border-stroke-soft-200 bg-bg-white-0 px-3 text-sm text-text-strong-950 shadow-regular-xs transition placeholder:text-text-soft-400 focus:border-primary-base focus:ring-4 focus:ring-primary-alpha-10 focus:outline-none disabled:cursor-not-allowed disabled:bg-bg-weak-50 disabled:text-text-disabled-300;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-label-sm text-text-sub-600;
+  }
+
+  .money {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .modal-panel {
+    animation: modal-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
