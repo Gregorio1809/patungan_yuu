@@ -83,6 +83,7 @@ const hasBillSettings = computed(
   () =>
     Boolean(store.session) &&
     ((store.session?.bill_discount_value ?? 0) > 0 ||
+      (store.session?.shipping_amount ?? 0) > 0 ||
       (store.session?.service_percent ?? 0) > 0 ||
       (store.session?.tax_percent ?? 0) > 0 ||
       (store.session?.tip_amount ?? 0) > 0),

@@ -20,6 +20,9 @@ export function buildSummaryText(
 
   if (claimedGross > 0) lines.push(`Subtotal: ${formatRupiah(claimedGross)}`)
   if (itemDiscount > 0) lines.push(`Diskon item: -${formatRupiah(itemDiscount)}`)
+  if (result.shippingAmount > 0) {
+    lines.push(`Ongkir: +${formatRupiah(result.shippingAmount)}`)
+  }
   if (result.billDiscount > 0) {
     lines.push(`Diskon bill: -${formatRupiah(result.billDiscount)}`)
   }

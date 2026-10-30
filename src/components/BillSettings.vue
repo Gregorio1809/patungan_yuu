@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import type {
   DiscountAllocation,
+  DiscountScope,
   DiscountType,
   RoundingStep,
   Session,
@@ -30,6 +31,8 @@ const form = reactive({
   discountType: 'percent' as DiscountType,
   discountValue: 0,
   discountAllocation: 'proportional' as DiscountAllocation,
+  discountScope: 'items' as DiscountScope,
+  shippingAmount: 0,
   servicePercent: 0,
   taxPercent: 0,
   taxBase: 'after_discount' as TaxBase,
@@ -42,9 +45,20 @@ const error = ref('')
 
 const hasItems = computed(() => props.claimedNet > 0)
 
+const previewShipping = computed(() => {
+  if (!hasItems.value) return 0
+  return Math.max(0, Math.round(Number(form.shippingAmount) || 0))
+})
+
+const previewDiscountBase = computed(() =>
+  form.discountScope === 'final'
+    ? props.claimedNet + previewShipping.value
+    : props.claimedNet,
+)
+
 const previewDiscount = computed(() => {
   if (!hasItems.value) return 0
-  const base = Math.max(0, props.claimedNet)
+  const base = Math.max(0, previewDiscountBase.value)
   const value = Math.max(0, Number(form.discountValue) || 0)
   const raw =
     form.discountType === 'percent'
@@ -54,7 +68,10 @@ const previewDiscount = computed(() => {
 })
 
 const previewAfterDiscount = computed(() =>
-  Math.max(0, props.claimedNet - previewDiscount.value),
+  Math.max(
+    0,
+    props.claimedNet + previewShipping.value - previewDiscount.value,
+  ),
 )
 
 function safePercent(value: number): number {
@@ -76,7 +93,7 @@ const previewService = computed(() => {
 const previewTaxBase = computed(
   () =>
     (form.taxBase === 'before_discount'
-      ? props.claimedNet
+      ? props.claimedNet + previewShipping.value
       : previewAfterDiscount.value) + previewService.value,
 )
 
@@ -98,7 +115,8 @@ const previewTip = computed(() => {
 const previewTotal = computed(() => {
   if (!hasItems.value) return 0
   return (
-    props.claimedNet -
+    props.claimedNet +
+    previewShipping.value -
     previewDiscount.value +
     previewService.value +
     previewTax.value +
@@ -114,6 +132,8 @@ watch(
     form.discountType = props.session.bill_discount_type
     form.discountValue = props.session.bill_discount_value
     form.discountAllocation = props.session.discount_allocation
+    form.discountScope = props.session.discount_scope
+    form.shippingAmount = props.session.shipping_amount
     form.servicePercent = props.session.service_percent
     form.taxPercent = props.session.tax_percent
     form.taxBase = props.session.tax_base
@@ -133,6 +153,11 @@ function setDiscountType(type: DiscountType) {
 function setDiscountAllocation(event: Event) {
   const value = (event.target as HTMLSelectElement).value
   form.discountAllocation = value === 'equal' ? 'equal' : 'proportional'
+}
+
+function setDiscountScope(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  form.discountScope = value === 'final' ? 'final' : 'items'
 }
 
 function setTaxBase(event: Event) {
@@ -178,6 +203,8 @@ function submit() {
     billDiscountType: form.discountType,
     billDiscountValue: Math.max(0, Number(form.discountValue) || 0),
     discountAllocation: form.discountAllocation,
+    discountScope: form.discountScope,
+    shippingAmount: Math.max(0, Number(form.shippingAmount) || 0),
     servicePercent: Math.max(0, Number(form.servicePercent) || 0),
     taxPercent: Math.max(0, Number(form.taxPercent) || 0),
     taxBase: form.taxBase,
@@ -255,6 +282,24 @@ function submit() {
         </div>
 
         <div>
+          <label for="discount-scope" class="label">Dasar diskon</label>
+          <select
+            id="discount-scope"
+            class="field"
+            :value="form.discountScope"
+            @change="setDiscountScope"
+          >
+            <option value="items">Per item (ongkir tidak ikut diskon)</option>
+            <option value="final">Total akhir (ongkir ikut diskon)</option>
+          </select>
+          <p class="mt-1 text-xs text-muted">
+            Total akhir = subtotal item + ongkir. Service dan pajak dihitung
+            setelah diskon, termasuk ongkir. Diskon per item tetap diatur di
+            masing-masing item.
+          </p>
+        </div>
+
+        <div>
           <label for="discount-allocation" class="label">Cara bagi diskon</label>
           <select
             id="discount-allocation"
@@ -272,12 +317,25 @@ function submit() {
           <span class="money font-medium text-ink-soft">
             −{{ formatRupiah(previewDiscount) }}
           </span>
-          dari subtotal {{ formatRupiah(claimedNet) }}.
+          dari {{ form.discountScope === 'final' ? 'total item + ongkir' : 'subtotal item' }}
+          {{ formatRupiah(previewDiscountBase) }}.
         </p>
       </section>
 
       <section class="space-y-3 border-t border-line pt-5">
         <h3 class="text-sm font-semibold">Biaya tambahan</h3>
+
+        <div>
+          <label for="shipping-amount" class="label">Ongkir (opsional)</label>
+          <MoneyInput
+            id="shipping-amount"
+            v-model="form.shippingAmount"
+            aria-label="Ongkir"
+          />
+          <p class="mt-1 text-xs text-muted">
+            Dibagi rata ke peserta yang punya item.
+          </p>
+        </div>
 
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
@@ -399,6 +457,13 @@ function submit() {
         <div class="flex items-center justify-between gap-3">
           <span class="text-muted">Subtotal</span>
           <span class="money">{{ formatRupiah(claimedNet) }}</span>
+        </div>
+        <div
+          v-if="previewShipping > 0"
+          class="flex items-center justify-between gap-3"
+        >
+          <span class="text-muted">Ongkir</span>
+          <span class="money">+{{ formatRupiah(previewShipping) }}</span>
         </div>
         <div
           v-if="previewDiscount > 0"

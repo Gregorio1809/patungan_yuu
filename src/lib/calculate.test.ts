@@ -24,6 +24,8 @@ function makeInput(overrides: Partial<CalcInput>): CalcInput {
     billDiscountType: 'percent',
     billDiscountValue: 0,
     discountAllocation: 'proportional',
+    discountScope: 'items',
+    shippingAmount: 0,
     servicePercent: 0,
     taxPercent: 0,
     taxBase: 'after_discount',
@@ -465,10 +467,97 @@ describe('calculate', () => {
     expect(result.grandTotal).toBe(
       result.claimedNet -
         result.billDiscount +
+        result.shippingAmount +
         result.serviceAmount +
         result.taxAmount +
         result.tipAmount,
     )
     expect(result.unclaimedItems).toHaveLength(1)
+  })
+
+  it('membagi ongkir rata ke peserta yang punya item', () => {
+    const result = calculate(
+      makeInput({
+        participants: [ani, budi, citra],
+        items: [
+          makeItem({ id: 'i1', name: 'A', price: 30_000, claims: [{ participantId: 'ani', quantity: 1 }] }),
+          makeItem({ id: 'i2', name: 'B', price: 60_000, claims: [{ participantId: 'budi', quantity: 1 }] }),
+        ],
+        shippingAmount: 9_000,
+      }),
+    )
+
+    expect(result.shippingAmount).toBe(9_000)
+    expect(result.people[0].shippingShare).toBe(4_500)
+    expect(result.people[1].shippingShare).toBe(4_500)
+    expect(result.people[2].shippingShare).toBe(0)
+    expect(totalOf(result, 'ani')).toBe(34_500)
+    expect(totalOf(result, 'budi')).toBe(64_500)
+    expect(totalOf(result, 'citra')).toBe(0)
+    expect(result.grandTotal).toBe(99_000)
+  })
+
+  it('menerapkan diskon per item atau total akhir termasuk ongkir', () => {
+    const base = {
+      participants: [ani],
+      items: [
+        makeItem({
+          id: 'i1',
+          name: 'Makanan',
+          price: 100_000,
+          claims: [{ participantId: 'ani', quantity: 1 }],
+        }),
+      ],
+      billDiscountType: 'percent' as const,
+      billDiscountValue: 10,
+      shippingAmount: 10_000,
+    }
+
+    const perItem = calculate(makeInput({ ...base, discountScope: 'items' }))
+    expect(perItem.billDiscount).toBe(10_000)
+    expect(perItem.grandTotal).toBe(100_000)
+
+    const finalTotal = calculate(makeInput({ ...base, discountScope: 'final' }))
+    expect(finalTotal.billDiscount).toBe(11_000)
+    expect(finalTotal.grandTotal).toBe(99_000)
+  })
+
+  it('diskon total akhir bisa memotong ongkir saat diskon melebihi subtotal', () => {
+    const base = {
+      participants: [ani],
+      items: [
+        makeItem({
+          id: 'i1',
+          name: 'Makanan',
+          price: 30_000,
+          claims: [{ participantId: 'ani', quantity: 1 }],
+        }),
+      ],
+      billDiscountType: 'amount' as const,
+      billDiscountValue: 50_000,
+      shippingAmount: 10_000,
+    }
+
+    const perItem = calculate(makeInput({ ...base, discountScope: 'items' }))
+    expect(perItem.billDiscount).toBe(30_000)
+    expect(perItem.grandTotal).toBe(10_000)
+
+    const finalTotal = calculate(makeInput({ ...base, discountScope: 'final' }))
+    expect(finalTotal.billDiscount).toBe(40_000)
+    expect(finalTotal.grandTotal).toBe(0)
+  })
+
+  it('tidak membebankan ongkir jika belum ada item diklaim', () => {
+    const result = calculate(
+      makeInput({
+        participants: [ani],
+        items: [makeItem({ id: 'i1', name: 'Belum diklaim', price: 50_000 })],
+        shippingAmount: 15_000,
+      }),
+    )
+
+    expect(result.shippingAmount).toBe(0)
+    expect(result.people[0].shippingShare).toBe(0)
+    expect(result.grandTotal).toBe(0)
   })
 })

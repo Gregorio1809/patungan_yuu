@@ -24,6 +24,8 @@ interface RawSessionRow {
   bill_discount_type: string
   bill_discount_value: number | string
   discount_allocation?: string | null
+  discount_scope?: string | null
+  shipping_amount?: number | string | null
   service_percent?: number | string | null
   tax_percent: number | string
   tax_base?: string | null
@@ -82,6 +84,8 @@ function normalizeSession(row: RawSessionRow): Session {
     bill_discount_value: Number(row.bill_discount_value) || 0,
     discount_allocation:
       row.discount_allocation === 'equal' ? 'equal' : 'proportional',
+    discount_scope: row.discount_scope === 'final' ? 'final' : 'items',
+    shipping_amount: Number(row.shipping_amount) || 0,
     service_percent: Number(row.service_percent) || 0,
     tax_percent: Number(row.tax_percent) || 0,
     tax_base:
@@ -268,6 +272,8 @@ export const supabaseRepository: SessionRepository = {
         bill_discount_type: patch.billDiscountType,
         bill_discount_value: patch.billDiscountValue,
         discount_allocation: patch.discountAllocation,
+        discount_scope: patch.discountScope,
+        shipping_amount: patch.shippingAmount,
         service_percent: patch.servicePercent,
         tax_percent: patch.taxPercent,
         tax_base: patch.taxBase,

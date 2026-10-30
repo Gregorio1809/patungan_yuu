@@ -10,6 +10,8 @@ Aplikasi web untuk bagi-bagi bill tanpa drama. Buat sesi, bagikan link, setiap p
 - Sinkronisasi realtime: perubahan peserta, item, dan klaim langsung terlihat di perangkat lain.
 - Harga per item, jumlah, diskon per item (persen atau nominal).
 - Diskon total bill yang bisa dibagi proporsional atau rata.
+- Ongkir tambahan yang dibagi rata ke peserta yang punya item.
+- Opsi diskon bill: per item (ongkir tidak ikut diskon) atau total akhir (ongkir ikut diskon).
 - Service charge dan pajak/PB1 terpisah, pilihan dasar pajak sebelum/sesudah diskon, dan tip opsional.
 - Pengecekan total struk: tampilkan selisih antara total aplikasi dan struk.
 - Item bersama dibagi sesuai bobot porsi tiap pengklaim.
@@ -49,7 +51,7 @@ Form awal hanya meminta nama sesi. Diskon bill, service, pajak, tip, pembulatan,
 
 1. Buat project baru di [supabase.com](https://supabase.com/dashboard).
 2. Buka **SQL Editor**, salin seluruh isi [`supabase/schema.sql`](./supabase/schema.sql), lalu jalankan.
-   File ini membuat tabel `sessions`, `participants`, `items`, dan `item_assignments`, mengaktifkan RLS, dan mendaftarkan tabel ke Realtime. File ini aman dijalankan ulang; jalankan lagi setelah update untuk menambahkan kolom pembayaran, service, tip, dan pembulatan.
+   File ini membuat tabel `sessions`, `participants`, `items`, dan `item_assignments`, mengaktifkan RLS, dan mendaftarkan tabel ke Realtime. File ini aman dijalankan ulang; jalankan lagi setelah update untuk menambahkan kolom pembayaran, ongkir, scope diskon, service, tip, dan pembulatan.
 3. Salin kredensial API:
    - Klik tombol **Connect** di kanan atas dashboard project. Di tab **App Frameworks**, salin **Project URL** dan **publishable key** (`sb_publishable_...`).
    - Key juga bisa diambil di **Settings → API Keys**. Key legacy `anon` (`eyJ...`) tetap berfungsi.
@@ -92,11 +94,12 @@ Semua nominal dihitung sebagai rupiah bulat.
 1. Harga kotor item = `harga satuan × qty`.
 2. Diskon item (persen atau nominal) dikurangkan dari harga kotor item. Nominal diskon dibatasi agar tidak melebihi harga.
 3. Harga bersih item dibagi ke pengklaim sesuai bobot porsi (`item_assignments.quantity`).
-4. Diskon total bill dibagi proporsional sesuai subtotal, atau rata dengan batas maksimum per subtotal.
-5. Service charge dihitung dari subtotal setelah diskon bill.
-6. Pajak/PB1 dihitung dari dasar yang dipilih: sebelum atau sesudah diskon. Service charge ikut masuk dasar pajak.
-7. Tip nominal dibagi proporsional sesuai subtotal item.
-8. Pembagian integer memakai metode largest remainder supaya jumlah bagian selalu sama dengan total yang dibagi.
+4. Ongkir dibagi rata ke peserta yang punya item.
+5. Diskon bill dihitung dari subtotal item saja (opsi **Per item**) atau dari subtotal item + ongkir (opsi **Total akhir**). Diskon dibagi proporsional sesuai dasar diskon, atau rata dengan batas maksimum per peserta.
+6. Service charge dihitung dari total setelah ongkir dan diskon.
+7. Pajak/PB1 dihitung dari dasar yang dipilih: sebelum atau sesudah diskon. Service charge ikut masuk dasar pajak.
+8. Tip nominal dibagi proporsional sesuai subtotal item.
+9. Pembagian integer memakai metode largest remainder supaya jumlah bagian selalu sama dengan total yang dibagi.
 
 Item tanpa klaim tidak masuk tagihan dan ditampilkan sebagai peringatan di ringkasan. Aksi cepat bisa membagi rata item tersebut ke semua peserta atau membebankannya ke penerima transfer.
 

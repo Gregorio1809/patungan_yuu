@@ -56,6 +56,8 @@ function makeResult(): ReturnType<typeof calculate> {
     billDiscountType: 'percent',
     billDiscountValue: 0,
     discountAllocation: 'proportional',
+    discountScope: 'items',
+    shippingAmount: 0,
     servicePercent: 0,
     taxPercent: 0,
     taxBase: 'after_discount',

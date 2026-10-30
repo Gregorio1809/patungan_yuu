@@ -44,7 +44,12 @@ function item(
   }
 }
 
-function makeResult(): ReturnType<typeof calculate> {
+function makeResult(
+  options: {
+    shippingAmount?: number
+    discountScope?: 'items' | 'final'
+  } = {},
+): ReturnType<typeof calculate> {
   const input: CalcInput = {
     participants: [
       { id: 'ani', name: 'Ani' },
@@ -58,6 +63,8 @@ function makeResult(): ReturnType<typeof calculate> {
     billDiscountType: 'amount',
     billDiscountValue: 30_000,
     discountAllocation: 'proportional',
+    discountScope: options.discountScope ?? 'items',
+    shippingAmount: options.shippingAmount ?? 0,
     servicePercent: 5,
     taxPercent: 10,
     taxBase: 'after_discount',
@@ -116,5 +123,27 @@ describe('buildSummaryText', () => {
 
     expect(text).not.toContain('Transfer ke')
     expect(text).not.toContain('(penerima)')
+  })
+
+  it('menampilkan ongkir dan diskon total akhir', () => {
+    const result = makeResult({
+      shippingAmount: 15_000,
+      discountScope: 'final',
+    })
+    const participants = [
+      participant('ani', 'Ani'),
+      participant('budi', 'Budi'),
+      participant('citra', 'Citra'),
+    ]
+
+    const text = buildSummaryText(
+      { title: 'Uji ongkir', rounding: 0 },
+      result,
+      participants,
+    )
+
+    expect(text).toContain(`Ongkir: +${formatRupiah(15_000)}`)
+    expect(text).toContain(`Total: ${formatRupiah(result.grandTotal)}`)
+    expect(result.shippingAmount).toBe(15_000)
   })
 })

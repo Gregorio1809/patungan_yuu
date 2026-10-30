@@ -43,6 +43,9 @@ function normalizeRecord(record: LocalSessionRecord): LocalSessionRecord {
         record.session.discount_allocation === 'equal'
           ? 'equal'
           : 'proportional',
+      discount_scope:
+        record.session.discount_scope === 'final' ? 'final' : 'items',
+      shipping_amount: Number(record.session.shipping_amount) || 0,
       service_percent: Number(record.session.service_percent) || 0,
       tax_base:
         record.session.tax_base === 'before_discount'
@@ -189,6 +192,8 @@ export const localRepository: SessionRepository = {
       bill_discount_type: 'percent',
       bill_discount_value: 0,
       discount_allocation: 'proportional',
+      discount_scope: 'items',
+      shipping_amount: 0,
       service_percent: 0,
       tax_percent: 0,
       tax_base: 'after_discount',
@@ -315,6 +320,8 @@ export const localRepository: SessionRepository = {
       bill_discount_type: patch.billDiscountType,
       bill_discount_value: patch.billDiscountValue,
       discount_allocation: patch.discountAllocation,
+      discount_scope: patch.discountScope,
+      shipping_amount: patch.shippingAmount,
       service_percent: patch.servicePercent,
       tax_percent: patch.taxPercent,
       tax_base: patch.taxBase,

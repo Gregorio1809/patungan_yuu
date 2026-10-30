@@ -13,6 +13,7 @@ const props = defineProps<{
 const hasDetails = computed(
   () =>
     props.person.items.length > 0 ||
+    props.person.shippingShare > 0 ||
     props.person.billDiscountShare > 0 ||
     props.person.serviceShare > 0 ||
     props.person.taxShare > 0 ||
@@ -74,6 +75,13 @@ const hasDetails = computed(
           <span class="money shrink-0">{{ formatRupiah(entry.amount) }}</span>
         </div>
 
+        <div
+          v-if="person.shippingShare > 0"
+          class="flex items-center justify-between gap-3 text-muted"
+        >
+          <span>Ongkir</span>
+          <span class="money">+{{ formatRupiah(person.shippingShare) }}</span>
+        </div>
         <div
           v-if="person.billDiscountShare > 0"
           class="flex items-center justify-between gap-3 text-positive"

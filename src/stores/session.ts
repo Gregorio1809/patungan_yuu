@@ -54,6 +54,8 @@ export const useSessionStore = defineStore('session', () => {
     billDiscountType: session.value?.bill_discount_type ?? 'percent',
     billDiscountValue: session.value?.bill_discount_value ?? 0,
     discountAllocation: session.value?.discount_allocation ?? 'proportional',
+    discountScope: session.value?.discount_scope ?? 'items',
+    shippingAmount: session.value?.shipping_amount ?? 0,
     servicePercent: session.value?.service_percent ?? 0,
     taxPercent: session.value?.tax_percent ?? 0,
     taxBase: session.value?.tax_base ?? 'after_discount',

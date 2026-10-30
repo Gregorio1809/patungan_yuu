@@ -1,5 +1,6 @@
 export type DiscountType = 'percent' | 'amount'
 export type DiscountAllocation = 'proportional' | 'equal'
+export type DiscountScope = 'items' | 'final'
 export type TaxBase = 'before_discount' | 'after_discount'
 export type RoundingStep = 0 | 500 | 1000
 
@@ -18,6 +19,8 @@ export interface Session {
   bill_discount_type: DiscountType
   bill_discount_value: number
   discount_allocation: DiscountAllocation
+  discount_scope: DiscountScope
+  shipping_amount: number
   service_percent: number
   tax_percent: number
   tax_base: TaxBase
@@ -69,6 +72,8 @@ export interface SessionSettingsPatch {
   billDiscountType: DiscountType
   billDiscountValue: number
   discountAllocation: DiscountAllocation
+  discountScope: DiscountScope
+  shippingAmount: number
   servicePercent: number
   taxPercent: number
   taxBase: TaxBase
@@ -100,6 +105,8 @@ export interface Database {
           bill_discount_type: string
           bill_discount_value: number
           discount_allocation: string
+          discount_scope: string
+          shipping_amount: number
           service_percent: number
           tax_percent: number
           tax_base: string
@@ -115,6 +122,8 @@ export interface Database {
           bill_discount_type?: string
           bill_discount_value?: number
           discount_allocation?: string
+          discount_scope?: string
+          shipping_amount?: number
           service_percent?: number
           tax_percent?: number
           tax_base?: string
@@ -130,6 +139,8 @@ export interface Database {
           bill_discount_type?: string
           bill_discount_value?: number
           discount_allocation?: string
+          discount_scope?: string
+          shipping_amount?: number
           service_percent?: number
           tax_percent?: number
           tax_base?: string

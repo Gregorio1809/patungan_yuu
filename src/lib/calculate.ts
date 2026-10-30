@@ -1,5 +1,6 @@
 import type {
   DiscountAllocation,
+  DiscountScope,
   DiscountType,
   TaxBase,
 } from '../types/database'
@@ -30,6 +31,8 @@ export interface CalcInput {
   billDiscountType: DiscountType
   billDiscountValue: number
   discountAllocation: DiscountAllocation
+  discountScope: DiscountScope
+  shippingAmount: number
   servicePercent: number
   taxPercent: number
   taxBase: TaxBase
@@ -47,6 +50,7 @@ export interface PersonResult {
   participantId: string
   name: string
   subtotal: number
+  shippingShare: number
   billDiscountShare: number
   serviceShare: number
   taxShare: number
@@ -78,6 +82,7 @@ export interface CalcResult {
   totalItemDiscount: number
   totalNet: number
   claimedNet: number
+  shippingAmount: number
   billDiscount: number
   serviceAmount: number
   taxAmount: number
@@ -195,6 +200,7 @@ export function calculate(input: CalcInput): CalcResult {
       participantId: participant.id,
       name: participant.name,
       subtotal: 0,
+      shippingShare: 0,
       billDiscountShare: 0,
       serviceShare: 0,
       taxShare: 0,
@@ -272,19 +278,34 @@ export function calculate(input: CalcInput): CalcResult {
   const subtotals = people.map(person => person.subtotal)
   const hasBill = claimedNet > 0
 
+  const shippingAmount = hasBill
+    ? Math.max(0, Math.round(Number(input.shippingAmount) || 0))
+    : 0
+  const shippingWeights = subtotals.map(subtotal => (subtotal > 0 ? 1 : 0))
+  const shippingShares = allocate(shippingAmount, shippingWeights)
+
+  const combinedBase = subtotals.map(
+    (subtotal, index) => subtotal + shippingShares[index],
+  )
+  const combinedBaseTotal = claimedNet + shippingAmount
+
+  const discountBase =
+    input.discountScope === 'final' ? combinedBaseTotal : claimedNet
   const billDiscount = applyDiscount(
-    claimedNet,
+    discountBase,
     input.billDiscountType,
     input.billDiscountValue,
   )
 
+  const discountWeights =
+    input.discountScope === 'final' ? combinedBase : subtotals
   const billShares =
     input.discountAllocation === 'equal'
-      ? allocateEqualCapped(billDiscount, subtotals)
-      : allocate(billDiscount, subtotals)
+      ? allocateEqualCapped(billDiscount, discountWeights)
+      : allocate(billDiscount, discountWeights)
 
-  const afterDiscount = subtotals.map(
-    (subtotal, index) => subtotal - billShares[index],
+  const afterDiscount = combinedBase.map(
+    (base, index) => base - billShares[index],
   )
   const afterDiscountTotal = afterDiscount.reduce(
     (sum, value) => sum + value,
@@ -297,13 +318,16 @@ export function calculate(input: CalcInput): CalcResult {
   const serviceShares = allocate(serviceAmount, afterDiscount)
 
   const taxBaseTotal =
-    (input.taxBase === 'before_discount' ? claimedNet : afterDiscountTotal) +
-    serviceAmount
+    (input.taxBase === 'before_discount'
+      ? combinedBaseTotal
+      : afterDiscountTotal) + serviceAmount
   const taxAmount = hasBill ? applyPercent(taxBaseTotal, input.taxPercent) : 0
 
   const taxWeights = afterDiscount.map((amount, index) => {
     const baseWeight =
-      input.taxBase === 'before_discount' ? subtotals[index] : amount
+      input.taxBase === 'before_discount'
+        ? combinedBase[index]
+        : amount
     return Math.max(0, baseWeight) + serviceShares[index]
   })
   const taxShares = allocate(taxAmount, taxWeights)
@@ -314,6 +338,7 @@ export function calculate(input: CalcInput): CalcResult {
   const tipShares = allocate(tipAmount, subtotals)
 
   people.forEach((person, index) => {
+    person.shippingShare = shippingShares[index]
     person.billDiscountShare = billShares[index]
     person.serviceShare = serviceShares[index]
     person.taxShare = taxShares[index]
@@ -334,6 +359,7 @@ export function calculate(input: CalcInput): CalcResult {
     totalItemDiscount,
     totalNet: totalGross - totalItemDiscount,
     claimedNet,
+    shippingAmount,
     billDiscount,
     serviceAmount,
     taxAmount,

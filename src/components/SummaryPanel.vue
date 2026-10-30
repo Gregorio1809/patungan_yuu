@@ -124,6 +124,10 @@ const receiptMessage = computed(() => {
         <dt class="text-muted">Diskon item</dt>
         <dd class="money text-positive">−{{ formatRupiah(claimedItemDiscount) }}</dd>
       </div>
+      <div v-if="result.shippingAmount > 0" class="flex items-center justify-between gap-3">
+        <dt class="text-muted">Ongkir</dt>
+        <dd class="money">+{{ formatRupiah(result.shippingAmount) }}</dd>
+      </div>
       <div v-if="result.billDiscount > 0" class="flex items-center justify-between gap-3">
         <dt class="text-muted">Diskon bill</dt>
         <dd class="money text-positive">−{{ formatRupiah(result.billDiscount) }}</dd>
@@ -181,7 +185,7 @@ const receiptMessage = computed(() => {
         v-if="!hasBillSettings"
         class="mt-1.5 text-center text-[11px] text-muted"
       >
-        Ada diskon bill, service, atau pajak? Atur di sini.
+        Ada ongkir, diskon, service, pajak, atau tip? Atur di sini.
       </p>
     </div>
 
