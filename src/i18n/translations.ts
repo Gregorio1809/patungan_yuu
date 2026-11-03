@@ -48,33 +48,66 @@ const id = {
   'header.settings': 'Atur bill dan pembayaran',
   'header.backHome': 'Kembali ke beranda',
 
-  'home.localTitle': 'Mode lokal aktif',
-  'home.localBody':
-    'Data disimpan di browser ini, jadi kamu bisa mencoba semua fitur tanpa Supabase. Supabase dipakai saat aplikasi berjalan di production.',
   'home.setupTitle': 'Supabase belum tersambung',
   'home.setupBody':
     'Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di .env.local atau Netlify, lalu deploy ulang. Skema database ada di supabase/schema.sql.',
-  'home.development': 'Development',
   'home.badge': 'Split bill rame-rame',
   'home.heroLine1': 'Bagi bill,',
   'home.heroLine2': 'bukan bingung.',
   'home.heroBody':
     'Buat sesi, bagikan link, biarkan setiap orang klaim itemnya sendiri. Total tiap orang dihitung otomatis, lengkap dengan ongkir, diskon, service, dan pajak.',
+  'home.ctaPrimary': 'Mulai patungan',
+  'home.ctaSecondary': 'Lihat cara kerja',
+  'home.trustFree': 'Gratis',
+  'home.trustNoAccount': 'Tanpa akun',
+  'home.trustShare': 'Siap dibagikan',
+  'home.localNote': 'Mode lokal — data tersimpan di browser ini.',
   'home.stepCreateTitle': 'Buat sesi',
   'home.stepCreateBody': 'Cukup beri nama acara.',
   'home.stepShareTitle': 'Bagikan link',
   'home.stepShareBody': 'Peserta buka link dan isi nama.',
   'home.stepClaimTitle': 'Atur & klaim',
   'home.stepClaimBody': 'Atur biaya, lalu klaim item.',
-  'home.startTitle': 'Mulai patungan baru',
-  'home.recentTitle': 'Sesi terakhir',
-  'home.noSessions': 'Belum ada sesi',
-  'home.noSessionsBody':
-    'Sesi yang kamu buat atau buka akan muncul di sini.',
+  'home.howTitle': 'Cara kerjanya',
+  'home.howSubtitle': 'Tiga langkah, bill langsung beres.',
+  'home.featuresTitle': 'Semua yang kamu butuhkan',
+  'home.featuresSubtitle':
+    'Dari klaim item sampai transfer, semuanya rapi di satu tempat.',
+  'home.featureClaimTitle': 'Klaim per item',
+  'home.featureClaimBody':
+    'Setiap orang pilih itemnya sendiri, tanpa perlu tanya-tanya.',
+  'home.featureCostsTitle': 'Diskon, ongkir, pajak',
+  'home.featureCostsBody':
+    'Dihitung otomatis dan dibagi proporsional.',
+  'home.featureQrTitle': 'Bagikan lewat QR',
+  'home.featureQrBody':
+    'Peserta langsung gabung dari HP masing-masing.',
+  'home.featurePaidTitle': 'Tandai lunas',
+  'home.featurePaidBody':
+    'Lihat siapa yang sudah transfer dan berapa.',
   'home.goodForTitle': 'Cocok buat',
+  'home.usecasesSubtitle':
+    'Makan bareng, patungan hadiah, sampai bill kafe.',
   'home.goodFor1': 'Makan rame-rame di kantor',
   'home.goodFor2': 'Patungan kado atau tiket',
   'home.goodFor3': 'Bill kafe yang pajaknya bikin bingung',
+  'home.startEyebrow': 'Mulai sekarang',
+  'home.startHeadline': 'Siap bagi bill?',
+  'home.startBody':
+    'Buat sesi, bagikan link, dan biarkan semua orang mengisi bagiannya sendiri.',
+  'home.startPoint1': 'Tanpa akun, tanpa instal aplikasi',
+  'home.startPoint2': 'Bisa dibuka dari HP atau laptop',
+  'home.startPoint3': 'Total dihitung otomatis',
+  'home.recentTitle': 'Sesi terakhir',
+  'home.recentSubtitle':
+    'Lanjutkan patungan yang sudah kamu buat.',
+  'home.previewTitle': 'Makan malam kantor',
+  'home.previewMeta': '3 peserta · 5 item',
+  'home.previewMore': '+{count} peserta lainnya',
+  'home.previewTotal': 'Total bill',
+  'home.previewAllPaid': 'Semua sudah lunas',
+  'home.previewNote': 'Tanpa chat bolak-balik.',
+  'home.footerNote': 'Dibuat untuk makan bareng yang seru.',
   'home.createError':
     'Gagal membuat sesi. Cek koneksi lalu coba lagi.',
 
@@ -141,7 +174,6 @@ const id = {
   'items.emptyCta': 'Tambah item pertama',
   'items.discountBadge': 'Diskon {value}',
   'items.unclaimed': 'Belum diklaim',
-  'items.discountLabel': 'potongan',
   'items.noClaims': 'Belum ada yang klaim item ini',
   'items.claim': 'Klaim',
   'items.duplicateAria': 'Duplikat item',
@@ -434,33 +466,66 @@ const en: Record<TranslationKey, TranslationValue> = {
   'header.settings': 'Bill and payment settings',
   'header.backHome': 'Back to home',
 
-  'home.localTitle': 'Local mode is on',
-  'home.localBody':
-    'Data is stored in this browser, so you can try every feature without Supabase. Supabase is used when the app runs in production.',
   'home.setupTitle': 'Supabase is not connected',
   'home.setupBody':
     'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local or Netlify, then redeploy. The database schema is in supabase/schema.sql.',
-  'home.development': 'Development',
   'home.badge': 'Split bills together',
   'home.heroLine1': 'Split bills,',
   'home.heroLine2': 'without the drama.',
   'home.heroBody':
     'Create a session, share the link, and let everyone claim their own items. Each person’s total is calculated automatically, including shipping, discounts, service, and tax.',
+  'home.ctaPrimary': 'Start a split',
+  'home.ctaSecondary': 'See how it works',
+  'home.trustFree': 'Free',
+  'home.trustNoAccount': 'No account',
+  'home.trustShare': 'Ready to share',
+  'home.localNote': 'Local mode — data stays in this browser.',
   'home.stepCreateTitle': 'Create a session',
   'home.stepCreateBody': 'Just name the event.',
   'home.stepShareTitle': 'Share the link',
   'home.stepShareBody': 'Everyone opens the link and enters their name.',
   'home.stepClaimTitle': 'Set up & claim',
   'home.stepClaimBody': 'Set the costs, then claim items.',
-  'home.startTitle': 'Start a new split',
-  'home.recentTitle': 'Recent sessions',
-  'home.noSessions': 'No sessions yet',
-  'home.noSessionsBody':
-    'Sessions you create or open will show up here.',
+  'home.howTitle': 'How it works',
+  'home.howSubtitle': 'Three steps, bill sorted.',
+  'home.featuresTitle': 'Everything you need',
+  'home.featuresSubtitle':
+    'From claiming items to transferring, it is all in one place.',
+  'home.featureClaimTitle': 'Claim per item',
+  'home.featureClaimBody':
+    'Everyone picks their own items, no questions needed.',
+  'home.featureCostsTitle': 'Discounts, shipping, tax',
+  'home.featureCostsBody':
+    'Calculated automatically and split proportionally.',
+  'home.featureQrTitle': 'Share with a QR code',
+  'home.featureQrBody':
+    'Everyone joins from their own phone.',
+  'home.featurePaidTitle': 'Track payments',
+  'home.featurePaidBody':
+    'See who has paid and how much.',
   'home.goodForTitle': 'Great for',
+  'home.usecasesSubtitle':
+    'Team meals, group gifts, and cafe bills.',
   'home.goodFor1': 'Team lunches at the office',
   'home.goodFor2': 'Splitting gifts or tickets',
   'home.goodFor3': 'Cafe bills with confusing tax',
+  'home.startEyebrow': 'Start now',
+  'home.startHeadline': 'Ready to split?',
+  'home.startBody':
+    'Create a session, share the link, and let everyone fill in their part.',
+  'home.startPoint1': 'No account, no app install',
+  'home.startPoint2': 'Works on phone or laptop',
+  'home.startPoint3': 'Totals calculated automatically',
+  'home.recentTitle': 'Recent sessions',
+  'home.recentSubtitle': 'Pick up a split you already started.',
+  'home.previewTitle': 'Team dinner',
+  'home.previewMeta': '3 people · 5 items',
+  'home.previewMore': ({ count }: Params) =>
+    `+${count} ${Number(count) === 1 ? 'more person' : 'more people'}`,
+  'home.previewTotal': 'Bill total',
+  'home.previewAllPaid': 'Everyone has paid',
+  'home.previewNote': 'No back-and-forth chat.',
+  'home.footerNote': 'Made for good meals together.',
   'home.createError':
     'Could not create the session. Check your connection and try again.',
 
@@ -529,7 +594,6 @@ const en: Record<TranslationKey, TranslationValue> = {
   'items.emptyCta': 'Add the first item',
   'items.discountBadge': 'Discount {value}',
   'items.unclaimed': 'Unclaimed',
-  'items.discountLabel': 'discount',
   'items.noClaims': 'No one has claimed this item',
   'items.claim': 'Claim',
   'items.duplicateAria': 'Duplicate item',

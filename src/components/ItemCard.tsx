@@ -115,6 +115,9 @@ export function ItemCard({
                       >
                         {item.name}
                       </h3>
+                      {item.quantity > 1 && (
+                        <Badge tone="neutral">×{item.quantity}</Badge>
+                      )}
                       {discount && (
                         <Badge tone="primary">
                           {t('items.discountBadge', { value: discount })}
@@ -124,20 +127,6 @@ export function ItemCard({
                         <Badge tone="warning">{t('items.unclaimed')}</Badge>
                       )}
                     </div>
-
-                    <p className="mt-1 text-paragraph-sm text-text-sub-600">
-                      <span className="money">{formatRupiah(item.price)}</span>
-                      {item.quantity > 1 && ` × ${item.quantity}`}
-                      {pricing.discount > 0 && (
-                        <>
-                          {' · '}
-                          {t('items.discountLabel')}{' '}
-                          <span className="money">
-                            {formatRupiah(pricing.discount)}
-                          </span>
-                        </>
-                      )}
-                    </p>
 
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                       {claims.map(row => (
@@ -164,7 +153,7 @@ export function ItemCard({
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 border-t border-stroke-soft-200 pt-3 sm:items-end sm:border-0 sm:pt-0">
+                  <div className="flex flex-col items-end gap-2 border-t border-stroke-soft-200 pt-3 sm:border-0 sm:pt-0">
                     <span className="money text-label-md font-semibold text-text-strong-950">
                       {formatRupiah(pricing.net)}
                     </span>
