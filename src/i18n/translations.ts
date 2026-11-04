@@ -182,7 +182,7 @@ const id = {
 
   'itemDialog.addTitle': 'Tambah item',
   'itemDialog.editTitle': 'Edit item',
-  'itemDialog.description': 'Harga, jumlah, dan diskon item.',
+  'itemDialog.description': 'Harga, jumlah, diskon, dan peserta item.',
   'itemDialog.name': 'Nama item',
   'itemDialog.namePlaceholder': 'Contoh: Nasi goreng seafood',
   'itemDialog.price': 'Harga satuan',
@@ -196,6 +196,11 @@ const id = {
   'itemDialog.net': 'Harga bersih',
   'itemDialog.nameRequired': 'Nama item wajib diisi.',
   'itemDialog.percentMax': 'Diskon persen maksimal 100%.',
+  'itemDialog.participants': 'Siapa yang ikut?',
+  'itemDialog.newParticipantPlaceholder': 'Nama peserta baru',
+  'itemDialog.newParticipantAria': 'Nama peserta baru',
+  'itemDialog.newBadge': 'Baru',
+  'itemDialog.removeNewAria': 'Batalkan {name}',
   'itemDialog.save': 'Simpan item',
   'itemDialog.saving': 'Menyimpan...',
 
@@ -602,7 +607,8 @@ const en: Record<TranslationKey, TranslationValue> = {
 
   'itemDialog.addTitle': 'Add item',
   'itemDialog.editTitle': 'Edit item',
-  'itemDialog.description': 'Item price, quantity, and discount.',
+  'itemDialog.description':
+    'Item price, quantity, discount, and participants.',
   'itemDialog.name': 'Item name',
   'itemDialog.namePlaceholder': 'e.g. Seafood fried rice',
   'itemDialog.price': 'Unit price',
@@ -617,6 +623,11 @@ const en: Record<TranslationKey, TranslationValue> = {
   'itemDialog.nameRequired': 'Item name is required.',
   'itemDialog.percentMax':
     'Percentage discount cannot exceed 100%.',
+  'itemDialog.participants': 'Who is sharing this?',
+  'itemDialog.newParticipantPlaceholder': 'New participant name',
+  'itemDialog.newParticipantAria': 'New participant name',
+  'itemDialog.newBadge': 'New',
+  'itemDialog.removeNewAria': 'Remove {name}',
   'itemDialog.save': 'Save item',
   'itemDialog.saving': 'Saving...',
 

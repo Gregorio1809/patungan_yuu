@@ -306,17 +306,46 @@ export function SessionView() {
     setItemDialog({ open: true, item })
   }
 
-  async function saveItem(input: NewItemInput) {
+  async function saveItem(
+    input: NewItemInput,
+    claims: Record<string, number>,
+    newNames: string[],
+  ) {
     if (!requireIdentity()) return
 
     const editing = itemDialog.item
     setItemSaving(true)
     try {
+      const created = await Promise.all(
+        newNames.map(name => store.addParticipant(name)),
+      )
+
+      let itemId: string
       if (editing) {
         await store.updateItem(editing.id, input)
+        itemId = editing.id
       } else {
-        await store.addItem(input)
+        itemId = (await store.addItem(input)).id
       }
+
+      const weights: Record<string, number> = { ...claims }
+      for (const participant of created) {
+        weights[participant.id] = 1
+      }
+
+      const removed = (editing?.item_assignments ?? [])
+        .filter(
+          assignment => weights[assignment.participant_id] === undefined,
+        )
+        .map(assignment =>
+          store.setClaim(itemId, assignment.participant_id, null),
+        )
+      const applied = Object.entries(weights).map(([participantId, weight]) =>
+        store.setClaim(itemId, participantId, weight),
+      )
+
+      await Promise.all([...removed, ...applied])
+
       setItemDialog({ open: false, item: null })
       toast.success(
         editing ? t('toast.itemUpdated') : t('toast.itemAdded'),
@@ -698,6 +727,8 @@ export function SessionView() {
           if (!open) setItemDialog({ open: false, item: null })
         }}
         item={itemDialog.item}
+        participants={participants}
+        me={myParticipantId ?? ''}
         pending={itemSaving}
         onSave={saveItem}
       />

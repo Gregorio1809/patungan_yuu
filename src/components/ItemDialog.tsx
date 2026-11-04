@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
+import { RiAddLine, RiCloseLine } from '@remixicon/react'
 import { useTranslation } from '../i18n/useTranslation'
 import type {
   DiscountType,
   ItemWithAssignments,
   NewItemInput,
+  Participant,
 } from '../types/database'
 import { calculateItemPricing } from '../lib/calculate'
 import { formatRupiah } from '../lib/money'
+import { Avatar } from '../ui/Avatar'
+import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Label } from '../ui/Label'
@@ -19,8 +23,14 @@ interface ItemDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   item: ItemWithAssignments | null
+  participants: Participant[]
+  me: string
   pending?: boolean
-  onSave: (input: NewItemInput) => void
+  onSave: (
+    input: NewItemInput,
+    claims: Record<string, number>,
+    newNames: string[],
+  ) => void
 }
 
 type ItemError = 'name' | 'percent' | null
@@ -29,6 +39,8 @@ export function ItemDialog({
   open,
   onOpenChange,
   item,
+  participants,
+  me,
   pending,
   onSave,
 }: ItemDialogProps) {
@@ -38,6 +50,9 @@ export function ItemDialog({
   const [quantity, setQuantity] = useState(1)
   const [discountType, setDiscountType] = useState<DiscountType>('percent')
   const [discountValue, setDiscountValue] = useState(0)
+  const [claims, setClaims] = useState<Record<string, number>>({})
+  const [newNames, setNewNames] = useState<string[]>([])
+  const [newName, setNewName] = useState('')
   const [error, setError] = useState<ItemError>(null)
 
   useEffect(() => {
@@ -47,6 +62,16 @@ export function ItemDialog({
     setQuantity(item?.quantity ?? 1)
     setDiscountType(item?.discount_type ?? 'percent')
     setDiscountValue(item?.discount_value ?? 0)
+    setClaims(
+      Object.fromEntries(
+        (item?.item_assignments ?? []).map(assignment => [
+          assignment.participant_id,
+          assignment.quantity,
+        ]),
+      ),
+    )
+    setNewNames([])
+    setNewName('')
     setError(null)
   }, [open, item])
 
@@ -56,6 +81,53 @@ export function ItemDialog({
     discountType,
     discountValue,
   )
+  const claimedCount = Object.keys(claims).length + newNames.length
+
+  function toggleClaim(participantId: string, checked: boolean) {
+    setClaims(previous => {
+      const next = { ...previous }
+      if (checked) {
+        next[participantId] = previous[participantId] ?? 1
+      } else {
+        delete next[participantId]
+      }
+      return next
+    })
+  }
+
+  function setClaimWeight(participantId: string, value: number) {
+    setClaims(previous => ({
+      ...previous,
+      [participantId]: Math.max(1, Math.round(value)),
+    }))
+  }
+
+  function addNewName() {
+    const value = newName.trim()
+    if (!value) return
+
+    const existing = participants.find(
+      participant =>
+        participant.name.trim().toLowerCase() === value.toLowerCase(),
+    )
+
+    if (existing) {
+      setClaims(previous => ({
+        ...previous,
+        [existing.id]: previous[existing.id] ?? 1,
+      }))
+    } else if (
+      !newNames.some(entry => entry.toLowerCase() === value.toLowerCase())
+    ) {
+      setNewNames(previous => [...previous, value])
+    }
+
+    setNewName('')
+  }
+
+  function removeNewName(value: string) {
+    setNewNames(previous => previous.filter(entry => entry !== value))
+  }
 
   function submit() {
     const value = name.trim()
@@ -68,13 +140,17 @@ export function ItemDialog({
       return
     }
     setError(null)
-    onSave({
-      name: value,
-      price: Math.max(0, Math.round(price)),
-      quantity: Math.max(1, Math.round(quantity)),
-      discountType,
-      discountValue: Math.max(0, discountValue),
-    })
+    onSave(
+      {
+        name: value,
+        price: Math.max(0, Math.round(price)),
+        quantity: Math.max(1, Math.round(quantity)),
+        discountType,
+        discountValue: Math.max(0, discountValue),
+      },
+      claims,
+      newNames,
+    )
   }
 
   return (
@@ -185,6 +261,104 @@ export function ItemDialog({
                 ariaLabel={t('itemDialog.amountAria')}
               />
             )}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <span className="text-label-sm text-text-sub-600">
+              {t('itemDialog.participants')}
+            </span>
+            {claimedCount > 0 && (
+              <span className="text-[11px] text-text-soft-400">
+                {t('common.personCount', { count: claimedCount })}
+              </span>
+            )}
+          </div>
+
+          <ul className="divide-y divide-stroke-soft-200 overflow-hidden rounded-10 border border-stroke-soft-200">
+            {participants.map(participant => {
+              const weight = claims[participant.id]
+              return (
+                <li
+                  key={participant.id}
+                  className="flex items-center gap-2 px-3 py-2"
+                >
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      className="size-4 shrink-0 accent-primary-text"
+                      checked={weight !== undefined}
+                      onChange={event =>
+                        toggleClaim(participant.id, event.target.checked)
+                      }
+                    />
+                    <Avatar name={participant.name} size="sm" />
+                    <span className="min-w-0 truncate text-label-md text-text-strong-950">
+                      {participant.name}
+                    </span>
+                    {participant.id === me && (
+                      <Badge tone="primary">{t('common.you')}</Badge>
+                    )}
+                  </label>
+
+                  {weight !== undefined && (
+                    <Stepper
+                      value={weight}
+                      onChange={value => setClaimWeight(participant.id, value)}
+                      label={t('common.weight')}
+                    />
+                  )}
+                </li>
+              )
+            })}
+
+            {newNames.map(value => (
+              <li key={value} className="flex items-center gap-2 px-3 py-2">
+                <span className="flex min-w-0 flex-1 items-center gap-2.5 pl-6">
+                  <Avatar name={value} size="sm" />
+                  <span className="min-w-0 truncate text-label-md text-text-strong-950">
+                    {value}
+                  </span>
+                  <Badge tone="primary">{t('itemDialog.newBadge')}</Badge>
+                </span>
+                <Button
+                  variant="neutral"
+                  mode="ghost"
+                  size="icon"
+                  className="size-8"
+                  aria-label={t('itemDialog.removeNewAria', { name: value })}
+                  onClick={() => removeNewName(value)}
+                >
+                  <RiCloseLine className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-2 flex gap-2">
+            <Input
+              value={newName}
+              onChange={event => setNewName(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  addNewName()
+                }
+              }}
+              placeholder={t('itemDialog.newParticipantPlaceholder')}
+              aria-label={t('itemDialog.newParticipantAria')}
+              maxLength={40}
+            />
+            <Button
+              variant="neutral"
+              mode="stroke"
+              onClick={addNewName}
+              disabled={!newName.trim()}
+            >
+              <RiAddLine className="size-4" />
+              {t('common.add')}
+            </Button>
           </div>
         </div>
 
